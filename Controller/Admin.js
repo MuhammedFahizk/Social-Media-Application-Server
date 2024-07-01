@@ -1,6 +1,6 @@
-const helper = require("../Helper/admin");
-const { generateToken } = require("../Utils/generateTokens");
-const { verifyAdminRefreshToken } = require("../Utils/verifyAdminRefreshToken");
+const helper = require('../helper/admin');
+const { generateToken } = require('../Utils/generateTokens');
+const { verifyAdminRefreshToken } = require('../Utils/verifyAdminRefreshToken');
 // const adminSignUp = async(req,res) => {
 //     try{
 //         const {name,email,password} = req.body;
@@ -25,12 +25,11 @@ const { verifyAdminRefreshToken } = require("../Utils/verifyAdminRefreshToken");
 const adminLogin = async (req, res) => {
   try {
     // Destructure email and password from request body
-    const { email, password } = req.body;
 
     // Call the helper function with the request body
     const result = await helper.adminLoginHelper(req.body);
 
-    console.log("Admin logged in:");
+    console.warn('Admin logged in:');
 
     // Generate access and refresh tokens
     const { accessToken, refreshToken } = await generateToken(result);
@@ -44,14 +43,14 @@ const adminLogin = async (req, res) => {
       error: false,
       accessToken,
       refreshToken,
-      message: "Admin logged in successfully",
+      message: 'Admin logged in successfully',
     });
   } catch (err) {
-    console.error("Error while logging in admin:", err);
+    console.error('Error while logging in admin:', err);
 
     // Determine the type of error and respond accordingly
-    if (err.message === "Invalid credentials") {
-      res.status(400).json({ error: true, message: "Invalid credentials" });
+    if (err.message === 'Invalid credentials') {
+      res.status(400).json({ error: true, message: 'Invalid credentials' });
     } else {
       res.status(500).json({ error: true, message: err });
     }
@@ -60,20 +59,18 @@ const adminLogin = async (req, res) => {
 
 const generateAccessToken = async (req, res) => {
   try {
-    const {refreshToken} = req.body
-    console.log("refreshToken: ", refreshToken);
+    const { refreshToken } = req.body;
     verifyAdminRefreshToken(refreshToken)
-    .then((result) => {
-      res.status(200).json(
-        {accessToken: result.accessToken, refreshToken: result.refreshToken}
-      )
-    })
-    .catch((err) => {
-      console.log(err.message,'error message for generate access token');
-      res.status(400).json({error: true, message: err.message})
+      .then((result) => {
+        res.status(200).json(
+          { accessToken: result.accessToken, refreshToken: result.refreshToken },
+        );
       })
+      .catch((err) => {
+        res.status(400).json({ error: true, message: err.message });
+      });
   } catch (error) {
-    res.status(500).json({error: true, message: error.message})
+    res.status(500).json({ error: true, message: error.message });
   }
 };
 

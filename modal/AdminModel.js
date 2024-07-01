@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
+
+const { Schema } = mongoose;
 
 // Define the Notification Schema
 const notificationSchema = new Schema({
@@ -28,7 +29,7 @@ const adminSchema = new Schema({
   email: {
     type: String,
     required: true,
-    unique: true
+    unique: true,
   },
   lastLogin: {
     type: Date,
@@ -46,8 +47,8 @@ const adminSchema = new Schema({
   },
   notifications: [notificationSchema],
   // token: {
-    // createdAt: { type: Date, default: Date.now(), expires: 10 * 86400 }, 
-    token: { type: String, required: true },    
+  // createdAt: { type: Date, default: Date.now(), expires: 10 * 86400 },
+  token: { type: String, required: true },
   // }
 });
 

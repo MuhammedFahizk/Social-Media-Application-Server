@@ -1,26 +1,27 @@
-const Admin = require("../modal/AdminModel");
-const argon2 = require("argon2");
+const argon2 = require('argon2');
+const Admin = require('../modal/AdminModel');
 
-const adminLoginHelper = async (LoginDAta) => {
-  return new Promise(async (resolve, reject) => {
-    try {
-        const { email, password } = LoginDAta;
-        const admin = await Admin.findOne({ email });
-        if (!admin) {
-            reject("Email or Password is Mismatch");
-            }
-            const isPasswordValid = await argon2.verify(admin.password, password);
-            if (isPasswordValid) {
-                resolve(admin);
-                } else {
-                    reject("Invalid password");
-                    }
+const adminLoginHelper = (LoginDAta) => new Promise((resolve, reject) => {
+  const { email, password } = LoginDAta;
 
-    } catch (error) {
+  Admin.findOne({ email })
+    .then((admin) => {
+      if (!admin) {
+        throw new Error('Email or Password is Mismatch');
+      }
+      return argon2.verify(admin.password, password).then((isPasswordValid) => {
+        if (isPasswordValid) {
+          resolve(admin);
+        } else {
+          reject(new Error('Invalid password'));
+        }
+      });
+    })
+    .catch((error) => {
       reject(error);
-    }
-  });
-};
+    });
+});
+
 module.exports = {
   adminLoginHelper,
 };
