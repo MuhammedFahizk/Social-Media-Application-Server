@@ -1,38 +1,39 @@
-const express = require('express');
-const dotenv = require('dotenv');
-const cors = require('cors');
-const bodyParser = require('body-parser');
+import express from 'express';
+import { config } from 'dotenv';
+import morgan from 'morgan';
+import cors from 'cors';
 
-const connectDB = require('./config/database');
-const adminRoutes = require('./router/AdminRoute');
+import connectDB from './config/database.js';
+import adminRoutes from './router/AdminRoute.js';
+import userRoutes from './router/UserRouter.js';
 
-dotenv.config();
+config();
 
 const app = express();
 
 // Middleware
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
-app.use(cors(
-  {
-    origin: 'http://localhost:5173',
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    credentials: true,
-  },
-));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cors({
+  origin: 'http://localhost:5173',
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+  credentials: true,
+}));
 
 // Connect to database
 connectDB().catch((err) => console.error('Database connection failed:', err));
 
 // Routes
+app.use(morgan('tiny'));
+
+morgan.token('param', function(req, res, param) {
+  return req.params[param];
+});
+app.use('/user', userRoutes);
 app.use('/admin', adminRoutes);
-// app.use('/', require('userRoutes');
 
 // Basic error handling middleware
-app.use((err, req, res) => {
-  console.error(err.stack);
-  res.status(500).send('Something broke!');
-});
+
 
 const PORT = process.env.PORT || 8000;
 

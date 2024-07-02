@@ -1,10 +1,13 @@
-const express = require('express');
+import { Router } from 'express';
+import { adminLogin, generateAccessToken, loginWithGoogle } from '../controller/Admin.js';
 
-const router = express.Router();
-const adminController = require('../controller/Admin');
-// Example route
-// router.post('/signUp',adminController)
-router.post('/Login', adminController.adminLogin);
-router.post('/generateAccessToken', adminController.generateAccessToken);
+const router = Router();
 
-module.exports = router;
+// Define your routes
+router.post('/login', adminLogin);
+router.post('/generateAccessToken', generateAccessToken);
+router.post('/loginWithGoogle', loginWithGoogle);
+
+
+
+export default router;

@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose, { model } from 'mongoose';
 
 const { Schema } = mongoose;
 
@@ -52,6 +52,6 @@ const adminSchema = new Schema({
   // }
 });
 
-const Admin = mongoose.model('Admin', adminSchema);
+const Admin = model('Admin', adminSchema);
 
-module.exports = Admin;
+export default Admin;

@@ -1,44 +1,17 @@
-const helper = require('../helper/admin');
-const { generateToken } = require('../Utils/generateTokens');
-const { verifyAdminRefreshToken } = require('../Utils/verifyAdminRefreshToken');
-// const adminSignUp = async(req,res) => {
-//     try{
-//         const {name,email,password} = req.body;
-//         console.log(name, email, password);
-//         helper.signUpAdminHelper({username: name, password, email})
-//         .then((result) => {
-//             console.log('Admin signed up:' );
-//             res.send('ok')
-//         })
-//         .catch((err) => {
-//             console.log('Error while signing up admin:', err);
-//             res.status(400).send(err)
-//             })
+import { adminGoogleLoginHelper, adminLoginHelper, googleLoginAdmin } from '../helper/admin.js';
+import  {generateToken}  from '../Utils/admin/generateTokens.js';
+import { verifyAdminRefreshToken  } from '../Utils/admin/verifyAdminRefreshToken.js';
 
-//     }
-//     catch (error) {
-//         console.log(error);
-//         res.status(500).json({ error: 'Server error' });
-//     }
-// }
+// Define your controller functions
 
 const adminLogin = async (req, res) => {
   try {
-    // Destructure email and password from request body
-
-    // Call the helper function with the request body
-    const result = await helper.adminLoginHelper(req.body);
+    const result = await adminLoginHelper(req.body);
 
     console.warn('Admin logged in:');
 
-    // Generate access and refresh tokens
     const { accessToken, refreshToken } = await generateToken(result);
 
-    // Set cookies for access and refresh tokens
-    // res.cookie("accessToken", accessToken, { httpOnly: true, secure: true });
-    // res.cookie("refreshToken", refreshToken, { httpOnly: true, secure: true });
-
-    // Send successful login response
     res.status(200).json({
       error: false,
       accessToken,
@@ -48,11 +21,10 @@ const adminLogin = async (req, res) => {
   } catch (err) {
     console.error('Error while logging in admin:', err);
 
-    // Determine the type of error and respond accordingly
     if (err.message === 'Invalid credentials') {
       res.status(400).json({ error: true, message: 'Invalid credentials' });
     } else {
-      res.status(500).json({ error: true, message: err });
+      res.status(500).json({ error: true, message: err.message });
     }
   }
 };
@@ -62,9 +34,9 @@ const generateAccessToken = async (req, res) => {
     const { refreshToken } = req.body;
     verifyAdminRefreshToken(refreshToken)
       .then((result) => {
-        res.status(200).json(
-          { accessToken: result.accessToken, refreshToken: result.refreshToken },
-        );
+        res.status(200).json({
+          accessToken: result.accessToken,
+        });
       })
       .catch((err) => {
         res.status(400).json({ error: true, message: err.message });
@@ -74,8 +46,31 @@ const generateAccessToken = async (req, res) => {
   }
 };
 
-module.exports = {
-  // adminSignUp
+const loginWithGoogle = async (req, res) => {
+  try {
+    const result = await adminGoogleLoginHelper(req.body.credential); // Await the promise
+     googleLoginAdmin(result)
+     .then(async(response) => {
+      const { accessToken, refreshToken } = await generateToken(response); 
+      res.status(200).json({
+        error: false,
+        accessToken,
+        refreshToken,
+        message: 'Admin logged in successfully',
+        });
+      })
+      .catch((err) => {
+        console.log(err);
+        res.status(400).json({ error: true, message: err.message });
+        });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Failed to authenticate' }); // Send a proper response on failure
+  }
+};
+
+export {
   adminLogin,
+  loginWithGoogle,
   generateAccessToken,
 };

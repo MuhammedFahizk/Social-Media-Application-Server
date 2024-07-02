@@ -1,3 +1,6 @@
 {
-    "eslint.format.enable": false
+    "eslint.format.enable": false,
+    "cSpell.words": [
+        "corsjsonwebtoken"
+    ]
 }

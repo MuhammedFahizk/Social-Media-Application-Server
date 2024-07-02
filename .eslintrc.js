@@ -1,32 +1,31 @@
-module.exports = {
-  env: {
-    browser: true,
-    commonjs: true,
-    es2021: true,
-  },
-  extends: 'airbnb-base',
-  overrides: [
-    {
-      env: {
-        node: true,
-      },
-      files: [
-        '.eslintrc.{js,cjs}',
-      ],
-      rules: {
-        'linebreak-style': ['error', 'unix'], // Override rule for this file
-      },
-      parserOptions: {
-        sourceType: 'script',
-      },
+export const env = {
+  browser: true,
+  commonjs: false,
+  es6: true,
+  es2021: true,
+};
+// export const extends = 'airbnb-base';
+export const overrides = [
+  {
+    env: {
+      node: true,
     },
-  ],
-  parserOptions: {
-    ecmaVersion: 'latest',
+    files: [
+      '.eslintrc.{js,cjs}',
+    ],
+    rules: {
+      'linebreak-style': ['error', 'unix'], // Override rule for this file
+    },
+    parserOptions: {
+      sourceType: 'script',
+    },
   },
-  rules: {
-    'linebreak-style': ['error', 'windows'],
-    'no-console': ['error', { allow: ['warn', 'error'] }],
-    'no-underscore-dangle': 'off',
-  },
+];
+export const parserOptions = {
+  ecmaVersion: 'latest',
+};
+export const rules = {
+  'linebreak-style': ['error', 'windows'],
+  'no-console': ['error', { allow: ['warn', 'error'] }],
+  'no-underscore-dangle': 'off',
 };
