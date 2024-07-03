@@ -1,28 +1,40 @@
 import {generateUserToken} from "../Utils/User/generateUserToken.js";
 import { verifyUserRefreshToken } from "../Utils/User/verifyUserRefreshToken.js";
-import  {userSignUpHelper, userLoginHelper, userGoogleLoginHelper, googleLoginUser}  from "../helper/user.js";
+import  {userValidateEmailHelper, userSignUpHelper, userLoginHelper, userGoogleLoginHelper, googleLoginUser}  from "../helper/user.js";
 
-const userSignUp = (req, res) => {
+const otpValidation = (req, res) => {
+    const user = req.body
+    userValidateEmailHelper(user)
+    .then((result) => {
+      return res.status(200).json({message: 'otp send to user Email'})
+    })
+    .catch((err) => {
+      return res.status(400).json({message: 'Email is not valid', error: err
+        })
+        })
+             
+}
+
+
+const userSignUp = async (req, res) => {
   try {
     const { ...user } = req.body;
-    userSignUpHelper(user)
-      .then(async (data) => {
-        const { accessToken, refreshToken } = await generateUserToken(data);
-        console.log(
-            'sdfd',
-            accessToken, refreshToken
-        );
-        return res
-          .status(200)
-          .json({ message: "user created", accessToken, refreshToken });
-      })
-      .catch((err) => {
-        console.log(err);
-        return res.status(400).json(err);
-      });
+    const data = await userSignUpHelper(user);
+    console.log('data:', data);
+    // Generate tokens for the newly signed-up user
+    const { accessToken, refreshToken } = await generateUserToken(data.user);
+
+    console.log('Access Token:', accessToken);
+    console.log('Refresh Token:', refreshToken);
+
+    return res.status(200).json({
+      message: "User created successfully",
+      accessToken,
+      refreshToken
+    });
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: "internal server Error", error });
+    console.error("Error in user sign-up:", error);
+    return res.status(400).json({ error: error.message || "Something went wrong" });
   }
 };
 
@@ -86,4 +98,4 @@ const loginWithGoogle = async (req, res) => {
 };
 
 
-export { userSignUp, generateAccessToken, userLogin, loginWithGoogle };
+export { userSignUp, generateAccessToken, userLogin, loginWithGoogle, otpValidation };

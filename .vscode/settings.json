@@ -1,6 +1,7 @@
 {
     "eslint.format.enable": false,
     "cSpell.words": [
-        "corsjsonwebtoken"
+        "corsjsonwebtoken",
+        "totp"
     ]
 }

@@ -1,5 +1,5 @@
 import pkg from 'jsonwebtoken';
-import User from '../../model/User.js';
+import {User} from '../../model/User.js';
 
 const { sign } = pkg;
  
@@ -14,7 +14,6 @@ const { sign } = pkg;
             throw new Error('Missing environment variables');
         }
         const isAdmin = false; // or true, depending on your use case
-
         const accessToken = sign({ ...payload, isAdmin }, process.env.ACCESS_TOKEN_SECRET, {
             expiresIn: '1m',
         });

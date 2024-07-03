@@ -19,7 +19,10 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.4.4",
     "morgan": "^1.10.0",
-    "nodemon": "^3.1.4"
+    "nodemailer": "^6.9.14",
+    "nodemon": "^3.1.4",
+    "otp-gen-agent": "^1.1.2",
+    "totp-generator": "^1.0.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.5.0",

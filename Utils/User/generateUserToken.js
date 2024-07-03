@@ -1,5 +1,5 @@
 import pkg from 'jsonwebtoken';
-import User from '../../model/User.js';
+import {User} from '../../model/User.js';
 
 const { sign } = pkg;
 
