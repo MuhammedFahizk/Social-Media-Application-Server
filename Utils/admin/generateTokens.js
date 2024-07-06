@@ -13,7 +13,7 @@ const generateToken = async (user) => {
       expiresIn: '1m',
     });
     const refreshToken = sign({...payload, isAdmin}, process.env.REFRESH_TOKEN_PRIVATE_KEY, {
-      expiresIn: '14d',
+      expiresIn: '7d',
     });
     const admin = await Admin.updateOne(
       { _id: user._id },
@@ -47,7 +47,7 @@ const generateAdminAccessToken = async (user) => {
           expiresIn: '1m',
       });
 
-      return { accessToken };
+      return { newAccessToken: accessToken };
   } catch (err) {
       console.error('Error generating access token:', err);
       throw new Error('Token generation failed');

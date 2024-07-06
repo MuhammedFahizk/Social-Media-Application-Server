@@ -17,10 +17,10 @@ const { sign } = pkg;
         const isAdmin = false; // or true, depending on your use case
 
         const accessToken = sign({ ...payload, isAdmin }, process.env.ACCESS_TOKEN_SECRET, {
-            expiresIn: '1m',
+            expiresIn: '4m',
         });
         const refreshToken = sign({ ...payload, isAdmin }, process.env.REFRESH_TOKEN_PRIVATE_KEY, {
-            expiresIn: '14d',
+            expiresIn: '7d',
         });
 
         await User.updateOne(

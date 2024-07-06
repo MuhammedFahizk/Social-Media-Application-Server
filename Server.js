@@ -6,6 +6,7 @@ import cors from 'cors';
 import connectDB from './config/database.js';
 import adminRoutes from './router/AdminRoute.js';
 import userRoutes from './router/UserRouter.js';
+import cookieParser from 'cookie-parser'; // Import cookie-parser using ES Modules
 
 config();
 
@@ -19,6 +20,7 @@ app.use(cors({
   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
   credentials: true,
 }));
+app.use(cookieParser());
 
 // Connect to database
 connectDB().catch((err) => console.error('Database connection failed:', err));

@@ -18,7 +18,7 @@ const { sign } = pkg;
             expiresIn: '1m',
         });
 
-        return { accessToken };
+        return { newAccessToken: accessToken };
     } catch (err) {
         console.error('Error generating access token:', err);
         throw new Error('Token generation failed');
