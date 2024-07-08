@@ -22,7 +22,7 @@ const { sign } = pkg;
         const refreshToken = sign({ ...payload, isAdmin }, process.env.REFRESH_TOKEN_PRIVATE_KEY, {
             expiresIn: '7d',
         });
-
+        console.log( accessToken, refreshToken);
         await User.updateOne(
             { _id: user._id },
             { $set: { token: refreshToken } }

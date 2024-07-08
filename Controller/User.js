@@ -7,6 +7,7 @@ import {
   userLoginHelper,
   userGoogleLoginHelper,
   googleLoginUser,
+  logoutHelper
 } from "../helper/user.js";
 import {User} from '../model/User.js';
 
@@ -30,7 +31,7 @@ const userSignUp = async (req, res) => {
     const data = await userSignUpHelper(user);
     console.log("data:", data);
     // Generate tokens for the newly signed-up user
-    const { accessToken, refreshToke } = generateUserToken(data.user);
+    const { accessToken, refreshToken } = await generateUserToken(data.user);
 
     console.log("Access Token:", accessToken);
     res.cookie("accessToken", accessToken, {
@@ -192,6 +193,21 @@ const loginWithGoogle = async (req, res) => {
   }
 };
 
+const logOutUser = (req,res) => {
+  const {refreshToken } = req.cookies
+  if(!refreshToken) return res.status(401).json({error:true,message:"User not authenticated "})
+    logoutHelper(refreshToken) 
+.then((response) => {
+  res.clearCookie("accessToken");
+  res.clearCookie("refreshToken");
+  res.status(200).json({error:false,message:"User logged out successfully"})
+})
+.catch((err) => {
+  console.log(err);
+  res.status(400).json({ error: true, message: err.message });
+  })
+  }
+
 export {
   userSignUp,
   verifyUser,
@@ -199,4 +215,5 @@ export {
   userLogin,
   loginWithGoogle,
   otpValidation,
+  logOutUser, 
 };

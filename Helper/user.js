@@ -47,8 +47,8 @@ const userSignUpHelper = async (user) => {
       }
       throw new Error("Username already exists");
     }
-    const otpInput = user.Otp
-    console.log(user);
+    const otpInput = user.otp
+    console.log('inp: ',user);
 
     const otpRecord = await Otp.findOne({ email: user.email })
     console.log(otpRecord);
@@ -134,4 +134,20 @@ const googleLoginUser = async (user) => {
       });
   });
 };
-export {  userLoginHelper ,userSignUpHelper, userGoogleLoginHelper, googleLoginUser, userValidateEmailHelper};
+
+const logoutHelper = async (refreshToken) => {
+  try {
+    const user = await User.findOne({ token: refreshToken });
+    if (user) {
+      user.token = null;
+      await user.save();
+      return user;
+    } else {
+      throw new Error("User not found");
+    }
+  } catch (error) {
+    throw new Error(error.message);
+  }
+};
+
+export {  userLoginHelper ,logoutHelper, userSignUpHelper, userGoogleLoginHelper, googleLoginUser, userValidateEmailHelper};
