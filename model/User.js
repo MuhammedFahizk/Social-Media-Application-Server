@@ -1,4 +1,4 @@
-import mongoose, { model } from "mongoose";
+import mongoose, { model } from 'mongoose';
 const { Schema } = mongoose;
 
 const userSchema = new Schema({
@@ -24,6 +24,6 @@ const otpSchema = new mongoose.Schema({
   otp: { type: String, required: true },
   createdAt: { type: Date, default: Date.now, expires: 300 },
 });
-const Otp = model("Otp", otpSchema);
-const User = model("User", userSchema);
+const Otp = model('Otp', otpSchema);
+const User = model('User', userSchema);
 export { User, Otp };

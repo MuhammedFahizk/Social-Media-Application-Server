@@ -26,8 +26,8 @@
     "totp-generator": "^1.0.0"
   },
   "devDependencies": {
-    "@eslint/js": "^9.5.0",
-    "eslint": "^9.5.0",
-    "globals": "^15.6.0"
+    "@eslint/js": "^9.6.0",
+    "eslint": "^9.6.0",
+    "globals": "^15.8.0"
   }
 }

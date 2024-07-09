@@ -1,7 +1,11 @@
 {
-    "eslint.format.enable": false,
-    "cSpell.words": [
-        "corsjsonwebtoken",
-        "totp"
-    ]
+  "eslint.enable": true,
+  "eslint.run": "onType",
+  "eslint.alwaysShowStatus": true,
+  "cSpell.words": [
+    "DPEHPK",
+    "JBSWY",
+    "nonblock",
+    "totp"
+  ]
 }

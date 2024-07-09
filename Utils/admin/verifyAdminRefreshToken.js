@@ -1,5 +1,5 @@
 import pkg from 'jsonwebtoken';
-import  {generateToken, generateAdminAccessToken}  from './generateTokens.js';
+import  { generateAdminAccessToken}  from './generateTokens.js';
 import Admin from '../../model/AdminModel.js';
 
 const { verify } = pkg;
@@ -14,7 +14,7 @@ const verifyAdminRefreshToken = (refreshToken) => new Promise((resolve, reject) 
         if (err) {
           return reject(new Error('Invalid Refresh tokens'));
         }
-        const { accessToken, refreshToken } = await generateAdminAccessToken(tokenDetail);
+        const { accessToken } = await generateAdminAccessToken(tokenDetail);
         return resolve({ accessToken });
       });
       return true;
