@@ -33,3 +33,25 @@ export const userAuthentication = (req, res, next) => {
     }
   }
 };
+
+export const userProtectedRoutes = async (req, res, next) => {
+  const { accessToken } = req.cookies;
+
+  if (!accessToken) {
+    return res.status(401).json({ message: 'Access token is required' });
+  }
+
+  try {
+    const decoded = jwt.verify(accessToken, process.env.ACCESS_TOKEN_SECRET);
+
+    if (decoded.isAdmin) {
+      return res.status(403).json({ message: 'Admin access not allowed' });
+    }
+
+    req.user = decoded;
+    next();
+  } catch (error) {
+    return res.status(403).json({ message: 'Invalid access token' });
+  }
+};
+

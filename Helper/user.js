@@ -1,13 +1,14 @@
 import { TOTP } from 'totp-generator';
-import {Otp, User} from '../model/User.js';
+import { Otp, User } from '../model/User.js';
 import { OAuth2Client } from 'google-auth-library';
-
 
 import sendOtpUserOtp from '../services/nodeMailer.js';
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const userValidateEmailHelper = async (user) => {
   try {
-    const existingUser = await User.findOne({ $or: [{ email: user.email }, { userName: user.userName }] });
+    const existingUser = await User.findOne({
+      $or: [{ email: user.email }, { userName: user.userName }],
+    });
     if (existingUser) {
       if (existingUser.email === user.email) {
         throw new Error('Email already exists');
@@ -17,7 +18,7 @@ const userValidateEmailHelper = async (user) => {
 
     const otpSecret = 'JBSWY3DPEHPK3PXP';
     const { otp, expires } = TOTP.generate(otpSecret);
-    
+
     let existingOtp = await Otp.findOne({ email: user.email });
     if (existingOtp) {
       existingOtp.otp = otp;
@@ -29,7 +30,7 @@ const userValidateEmailHelper = async (user) => {
     }
 
     await sendOtpUserOtp(user.email, otp); // Ensure otp is sent properly
-    
+
     return { message: 'OTP sent successfully', user: user };
   } catch (error) {
     console.error('Error in user validation:', error);
@@ -40,17 +41,18 @@ const userValidateEmailHelper = async (user) => {
 const userSignUpHelper = async (user) => {
   try {
     // Check if email or username already exists
-    const existingUser = await User.findOne({ $or: [{ email: user.email }, { userName: user.userName }] });
+    const existingUser = await User.findOne({
+      $or: [{ email: user.email }, { userName: user.userName }],
+    });
     if (existingUser) {
       if (existingUser.email === user.email) {
         throw new Error('Email already exists');
       }
       throw new Error('Username already exists');
     }
-    
+
     const otpInput = user.otp;
     const otpRecord = await Otp.findOne({ email: user.email });
-
 
     if (!otpRecord) {
       throw new Error('OTP not found');
@@ -68,7 +70,6 @@ const userSignUpHelper = async (user) => {
     throw error; // Propagate the error up to the caller
   }
 };
-
 
 const userLoginHelper = async (user) => {
   return new Promise((resolve, reject) => {
@@ -91,7 +92,6 @@ const userLoginHelper = async (user) => {
 };
 
 const userGoogleLoginHelper = async (credential) => {
-
   // Directly use the credential as the ID token since it's the entire JWT string
   const idToken = credential; // No need to decode or extract further
 
@@ -99,7 +99,6 @@ const userGoogleLoginHelper = async (credential) => {
   if (!idToken) {
     throw new Error('ID token is missing');
   }
-
 
   try {
     const response = await client.verifyIdToken({
@@ -116,11 +115,11 @@ const userGoogleLoginHelper = async (credential) => {
 
 const googleLoginUser = async (user) => {
   return new Promise((resolve, reject) => {
-    const {  email } = user;
+    const { email } = user;
     User.findOne({ email })
-      .then((admin) => {
-        if (admin) {
-          resolve(admin);
+      .then((user) => {
+        if (user) {
+          resolve(user);
         } else {
           reject(new Error('User not found'));
         }
@@ -146,4 +145,55 @@ const logoutHelper = async (refreshToken) => {
   }
 };
 
-export {  userLoginHelper ,logoutHelper, userSignUpHelper, userGoogleLoginHelper, googleLoginUser, userValidateEmailHelper};
+const findSuggestion = async (id) => {
+  try {
+    const users = await User.find({_id: {$ne: id}});
+    return users;
+  } catch (error) {
+    throw error;
+  }
+};
+
+const followingHelper = (_id, userId) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const follower = await User.findById(_id);
+      const following = await User.findById(userId);
+
+      if (!follower && !following) {
+        throw new Error('User not found');
+      }
+      following.followers.push(_id);
+      // Add userId to the following array
+      follower.following.push(userId);
+      
+      // Save the updated user document
+      await follower.save();
+      await following.save();
+      resolve(following);
+    } catch (error) {
+      reject(error);
+    }
+  });
+};
+
+const profileHelper = (id) => {
+  return new Promise(async (resolve, reject) => {
+    const user = User.findById(id);
+    if (!user) throw new Error('User not found');
+    resolve(user);
+  });
+};
+
+
+export {
+  userLoginHelper,
+  logoutHelper,
+  userSignUpHelper,
+  userGoogleLoginHelper,
+  googleLoginUser,
+  userValidateEmailHelper,
+  findSuggestion,
+  followingHelper,
+  profileHelper,
+};

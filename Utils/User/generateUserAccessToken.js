@@ -12,7 +12,7 @@ const generateUserAccessToken = async (user) => {
     }
     const isAdmin = false; // or true, depending on your use case
     const accessToken = sign({ ...payload, isAdmin }, process.env.ACCESS_TOKEN_SECRET, {
-      expiresIn: '1m',
+      expiresIn: '4m',
     });
 
     return { newAccessToken: accessToken };
