@@ -1,8 +1,8 @@
 import { TOTP } from 'totp-generator';
 import { Otp, User } from '../model/User.js';
 import { OAuth2Client } from 'google-auth-library';
-
 import sendOtpUserOtp from '../services/nodeMailer.js';
+import argon2 from 'argon2';
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const userValidateEmailHelper = async (user) => {
   try {
@@ -60,11 +60,14 @@ const userSignUpHelper = async (user) => {
     if (otpRecord.otp !== otpInput) {
       throw new Error('Invalid OTP');
     }
-
+    const hashPassword = await argon2.hash(user.password);
     // Save new user
-    const newUser = new User(user);
+    const newUser = new User({
+      ...user,
+      password: hashPassword,
+    });
     const savedUser = await newUser.save();
-    return { message: 'User saved successfully', user: savedUser };
+    return savedUser;
   } catch (error) {
     console.error('Error saving user:', error);
     throw error; // Propagate the error up to the caller
@@ -74,13 +77,14 @@ const userSignUpHelper = async (user) => {
 const userLoginHelper = async (user) => {
   return new Promise((resolve, reject) => {
     User.findOne({ email: user.email })
-      .then((existingUser) => {
-        if (existingUser) {
-          if (existingUser.password === user.password) {
-            resolve(existingUser);
-          } else {
-            reject(new Error('Invalid credentials'));
-          }
+      .then(async(existingUser) => {
+
+        if (!existingUser) {
+          throw new Error('Invalid credentials');
+        }
+        const isPasswordValid = await argon2.verify(existingUser.password, user.password)
+        if (isPasswordValid) {
+          resolve(existingUser);
         } else {
           reject(new Error('Invalid credentials'));
         }
@@ -147,8 +151,22 @@ const logoutHelper = async (refreshToken) => {
 
 const findSuggestion = async (id) => {
   try {
-    const users = await User.find({_id: {$ne: id}});
-    return users;
+    const user = await User.findById(id).populate('following').populate('followers');
+  
+    if (!user) {
+      // Handle the case where user is not found
+      return { users: [], user: null };
+    }
+  
+    // Ensure `following` is an array if it's null or undefined
+    const following = user.following || [];
+  
+    // Query users excluding those in the `following` list
+    const users = await User.find({
+      _id: { $ne: id, $nin: following }
+    });
+  
+    return { users, user };
   } catch (error) {
     throw error;
   }
@@ -177,13 +195,46 @@ const followingHelper = (_id, userId) => {
   });
 };
 
+const unFollowingHelper = async (_id, userId) => {
+  try {
+    const follower = await User.findById(_id);
+    const following = await User.findById(userId);
+
+    if (!follower || !following) {
+      throw new Error('User not found');
+    }
+    following.followers = following.followers.filter(followerId => followerId.toString() !== _id.toString());
+    follower.following = follower.following.filter(followingId => followingId.toString() !== userId.toString());
+
+
+    await follower.save();
+    await following.save();
+
+    console.log('Unfollow successful');
+    return { message: 'Unfollow successful' };
+  } catch (error) {
+    console.error('Error in unFollowingHelper:', error);
+    throw error; // Rethrow to allow caller to handle or log the error further
+  }
+};
+
 const profileHelper = (id) => {
   return new Promise(async (resolve, reject) => {
-    const user = User.findById(id);
+    const user = User.findById(id)
+      .populate('followers')
+      .populate('following');
     if (!user) throw new Error('User not found');
     resolve(user);
   });
 };
+
+const searchHelper = async (id, value) => {
+  return new Promise((resolve, reject) => {
+    const regExp = new RegExp(value, 'i'); // Create a regular expression for the search
+    const users = User.find({ userName: regExp })
+      resolve(users); // Resolve with the found users
+  });
+}
 
 
 export {
@@ -196,4 +247,6 @@ export {
   findSuggestion,
   followingHelper,
   profileHelper,
+  unFollowingHelper,
+  searchHelper,
 };

@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-
+import { userVerification } from '../services/userVerification.js';
 export const userAuthentication = (req, res, next) => {
 
   
@@ -35,14 +35,25 @@ export const userAuthentication = (req, res, next) => {
 };
 
 export const userProtectedRoutes = async (req, res, next) => {
-  const { accessToken } = req.cookies;
+  const { accessToken, refreshToken } = req.cookies;
 
   if (!accessToken) {
-    return res.status(401).json({ message: 'Access token is required' });
+    if (!refreshToken) {
+      return res.status(401).json({ message: 'Access token is required' });
+    }
+
+    // Call userVerification to handle refresh token
+    const verificationResult = await userVerification(req, res);
+    if (verificationResult !== true) {
+      return; // userVerification will handle the response
+    }
+
+    // After verification, check the new accessToken
+    
   }
 
   try {
-    const decoded = jwt.verify(accessToken, process.env.ACCESS_TOKEN_SECRET);
+    const decoded = jwt.verify(req.cookies.accessToken, process.env.ACCESS_TOKEN_SECRET);
 
     if (decoded.isAdmin) {
       return res.status(403).json({ message: 'Admin access not allowed' });
@@ -51,6 +62,7 @@ export const userProtectedRoutes = async (req, res, next) => {
     req.user = decoded;
     next();
   } catch (error) {
+    console.error('Invalid token', error);
     return res.status(403).json({ message: 'Invalid access token' });
   }
 };

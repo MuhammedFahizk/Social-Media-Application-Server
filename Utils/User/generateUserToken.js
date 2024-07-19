@@ -22,6 +22,7 @@ export const generateUserToken = async (user) => {
       { $set: { token: refreshToken } }
     );
 
+
     return { accessToken, refreshToken };
   } catch (err) {
     console.error('Error generating tokens:', err);

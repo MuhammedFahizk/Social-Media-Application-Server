@@ -1,5 +1,4 @@
 import pkg from 'jsonwebtoken';
-
 const { sign } = pkg;
  
 const generateUserAccessToken = async (user) => {

@@ -11,6 +11,8 @@ import {
   findSuggestion,
   followingHelper,
   profileHelper,
+  unFollowingHelper,
+  searchHelper,
 } from '../helper/user.js';
 import { User } from '../model/User.js';
 
@@ -31,7 +33,6 @@ const userSignUp = async (req, res) => {
   try {
     const { ...user } = req.body;
     const data = await userSignUpHelper(user);
-    // Generate tokens for the newly signed-up user
     const { accessToken, refreshToken } = await generateUserToken(data.user);
 
     res.cookie('accessToken', accessToken, {
@@ -234,10 +235,9 @@ const logOutUser = (req, res) => {
 };
 const homePage = (req, res) => {
   const { _id } = req.user;
-  console.log(req.user);
   findSuggestion(_id)
-    .then((suggestion) => {
-      res.status(200).json(suggestion);
+    .then((data) => {
+      res.status(200).json(data);
     })
     .catch((error) => {
       console.error(error);
@@ -257,6 +257,21 @@ const followUser = async (req,res) => {
     });
 };
 
+const unFollowUser = async (req,res) => {
+  const { _id } = req.user;
+  const { id } = req.params;
+  console.log(id, _id);
+  unFollowingHelper(_id,id)
+    .then((response) => {
+      return res.status(200).json(response);
+    })
+    .catch((error) => {
+      console.error(error);
+      return res.status(500).json({ error: 'Internal Server Error'});
+    });
+};
+
+
 function logWithTimestamp(message) {
   console.log(`[${new Date().toISOString()}] ${message}`);
 }
@@ -273,7 +288,7 @@ const profile = (req, res) => {
   logWithTimestamp(`Profile ID extracted from params: ${id}`);
 
   // Determine which ID to use
-  let userId = id ? id : _id;
+  const userId = id ? id : _id;
   logWithTimestamp(`Using user ID: ${userId}`);
 
   profileHelper(userId)
@@ -306,8 +321,27 @@ const userProfile = async (req,res) => {
       }
       res.status(500).json({ error: 'Internal Server Error' });
     });
-}
+};
 
+const userSearch = (req,res) => { 
+  try {
+    const { value} = req.params;
+    console.log(req.user);
+    const { _id } = req.user;
+    console.log('value',value);
+    searchHelper(_id, value)
+      .then((response) => {
+        console.log(response);
+        return res.status(200).json({message:'search success',response });
+      })
+      .catch((error) => {
+        return res.status(500).json({message:'search failed',error });
+      });
+  } catch (error) {
+    console.log('error',error);
+    return res.status(500).json({message: 'internal server error', error})
+  }
+};
 export {
   userSignUp,
   verifyUser,
@@ -320,4 +354,7 @@ export {
   followUser,
   profile,
   userProfile,
+  unFollowUser,
+  userSearch,
+
 };

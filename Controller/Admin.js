@@ -1,8 +1,7 @@
-import { adminGoogleLoginHelper, adminLoginHelper, googleLoginAdmin } from '../helper/admin.js';
+import { adminGoogleLoginHelper, adminLoginHelper, googleLoginAdmin, usersHelper } from '../helper/admin.js';
 import  {generateAdminAccessToken, generateToken}  from '../Utils/admin/generateTokens.js';
 import { verifyAdminRefreshToken  } from '../Utils/admin/verifyAdminRefreshToken.js';
 import Admin from '../model/AdminModel.js';
-
 // Define your controller functions
 
 const adminLogin = async (req, res) => {
@@ -131,10 +130,25 @@ const verifyAdmin = async(req,res)  => {
     return res.status(500).json({ message: 'Internal Server Error' });
   }
 };
+const usersList = async(req,res) => {
+  try {
+    usersHelper()
+      .then((data) => {
+        return res.status(200).json({ data: data, message: 'Users List' });
+      })
+      .catch((err) => {
+        return res.status(500).json({ message: 'Internal Server Error',err });
 
+      });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Failed to authenticate' }); 
+  }
+};
 export {
   verifyAdmin,
   adminLogin,
   loginWithGoogle,
   generateAccessToken,
+  usersList,
 };
