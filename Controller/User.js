@@ -13,8 +13,13 @@ import {
   profileHelper,
   unFollowingHelper,
   searchHelper,
+  userProfileHelper,
+  uploadProfileHelper,
+  createPostHelper,
 } from '../helper/user.js';
 import { User } from '../model/User.js';
+import { deleteImageCloudinary } from '../services/deleteImageCloudinary.js';
+import { uploadImageCloudinary } from '../services/uploadImageCloudinary.js';
 
 const otpValidation = (req, res) => {
   const user = req.body;
@@ -33,7 +38,7 @@ const userSignUp = async (req, res) => {
   try {
     const { ...user } = req.body;
     const data = await userSignUpHelper(user);
-    const { accessToken, refreshToken } = await generateUserToken(data.user);
+    const { accessToken, refreshToken } = await generateUserToken(data);
 
     res.cookie('accessToken', accessToken, {
       maxAge: 4 * 60 * 1000,
@@ -260,7 +265,6 @@ const followUser = async (req,res) => {
 const unFollowUser = async (req,res) => {
   const { _id } = req.user;
   const { id } = req.params;
-  console.log(id, _id);
   unFollowingHelper(_id,id)
     .then((response) => {
       return res.status(200).json(response);
@@ -272,10 +276,6 @@ const unFollowUser = async (req,res) => {
 };
 
 
-function logWithTimestamp(message) {
-  console.log(`[${new Date().toISOString()}] ${message}`);
-}
-
 const profile = (req, res) => {
   // Validate request parameters
   if (!req.user || !req.params.id) {
@@ -283,21 +283,16 @@ const profile = (req, res) => {
   }
 
   const { _id } = req.user;
-  logWithTimestamp('User ID extracted from user object');
   const { id } = req.params;
-  logWithTimestamp(`Profile ID extracted from params: ${id}`);
 
   // Determine which ID to use
-  const userId = id ? id : _id;
-  logWithTimestamp(`Using user ID: ${userId}`);
+  // const userId = id ? id : _id;
 
-  profileHelper(userId)
+  profileHelper(id, _id)
     .then((response) => {
-      logWithTimestamp('Profile data retrieved successfully');
       res.status(200).json(response);
     })
     .catch((error) => {
-      logWithTimestamp(`Failed to retrieve profile data: ${error.message}`);
       // Provide more specific error responses based on the error type
       if (error) {
         return res.status(404).json({ error: 'Profile not found' });
@@ -308,15 +303,14 @@ const profile = (req, res) => {
 
 const userProfile = async (req,res) => {
   const { _id } = req.user;
-  profileHelper(_id)
+  userProfileHelper(_id)
     .then((response) => {
-      logWithTimestamp('Profile data retrieved successfully');
       res.status(200).json(response);
     })
     .catch((error) => {
-      logWithTimestamp(`Failed to retrieve profile data: ${error.message}`);
       // Provide more specific error responses based on the error type
       if (error) {
+        console.error(error);
         return res.status(404).json({ error: 'Profile not found' });
       }
       res.status(500).json({ error: 'Internal Server Error' });
@@ -326,22 +320,106 @@ const userProfile = async (req,res) => {
 const userSearch = (req,res) => { 
   try {
     const { value} = req.params;
-    console.log(req.user);
     const { _id } = req.user;
-    console.log('value',value);
     searchHelper(_id, value)
       .then((response) => {
-        console.log(response);
         return res.status(200).json({message:'search success',response });
       })
       .catch((error) => {
         return res.status(500).json({message:'search failed',error });
       });
   } catch (error) {
-    console.log('error',error);
-    return res.status(500).json({message: 'internal server error', error})
+    return res.status(500).json({message: 'internal server error', error});
   }
 };
+
+const uploadProfile = (req, res) => {
+  const { file } = req; // Assuming 'file' is the field name for the uploaded file
+  const { _id } = req.user;
+  try {
+    uploadProfileHelper(_id, file)
+      .then((response) => {
+        return res.status(200).json({ message: 'upload success', response });
+      })
+      .catch((error) => {
+        return res.status(500).json({ message: 'upload failed', error });
+      });
+  } catch (error) {
+    return res.status(500).json({ message: 'internal server error', error });
+  }
+};
+const createPost =  async(req, res) => {
+  try {
+    const {content} = req.params;
+    const { _id } = req.user;
+    const  body   = req.body;
+    console.log(req.body);
+    createPostHelper(body, content, _id)
+      .then((response) => {
+        return res.status(200).json({ message: 'post success', response });
+      })
+      .catch((error) => {
+        console.log(error);
+        return res.status(500).json({ message: 'post failed', error });
+      });
+  } catch (error) { 
+    console.log(error);
+    return res.status(500).json({ message: 'internal server error', error }); 
+  }
+};
+const uploadImageCloud = (req, res) => {
+  try {
+    const { image } = req.body;
+    console.log(req.file);
+    uploadImageCloudinary(req.file)
+      .then((response) => {
+        return res.status(200).json({ message: 'upload success', response });
+      })
+      .catch((error) => {
+        return res.status(500).json({ message: 'upload failed', error });
+      });
+  
+  } catch (error) {
+    return res.status(500).json({ message: 'internal server error', error });
+  
+  }
+};
+const deleteImage = async (req, res) => {
+  const { url } = req.body;
+
+  if (!url) {
+    return res.status(400).json({ message: 'No URL provided' });
+  }
+
+  try {
+    const publicId = extractPublicId(url);
+    console.log('Public ID:', publicId);
+
+    const result = await deleteImageCloudinary(publicId);
+    console.log('Result:', result);
+    // Check the result to confirm deletion
+    if (result.result === 'ok') {
+      res.status(200).json({ message: 'Image deleted successfully' });
+    } else {
+      res.status(400).json({ message: 'Image deletion failed', result });
+    }
+  } catch (error) {
+    console.error('Error deleting image:', error); // Log full error
+    res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+};
+
+const extractPublicId = (url) => {
+  try {
+    // Assuming URL structure like http://res.cloudinary.com/demo/image/upload/v1234567890/sample.jpg
+    const urlParts = new URL(url);
+    const pathParts = urlParts.pathname.split('/');
+    return pathParts[pathParts.length - 1].split('.')[0];
+  } catch (error) {
+    throw new Error('Invalid URL format');
+  }
+};
+
 export {
   userSignUp,
   verifyUser,
@@ -356,5 +434,8 @@ export {
   userProfile,
   unFollowUser,
   userSearch,
-
+  uploadProfile,
+  createPost,
+  uploadImageCloud,
+  deleteImage,
 };

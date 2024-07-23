@@ -2,7 +2,15 @@ import { TOTP } from 'totp-generator';
 import { Otp, User } from '../model/User.js';
 import { OAuth2Client } from 'google-auth-library';
 import sendOtpUserOtp from '../services/nodeMailer.js';
+import cloudinary from 'cloudinary';
+
+cloudinary.config({
+  cloud_name: process.env.CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 import argon2 from 'argon2';
+import Posts from '../model/Posts.js';
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const userValidateEmailHelper = async (user) => {
   try {
@@ -82,7 +90,7 @@ const userLoginHelper = async (user) => {
         if (!existingUser) {
           throw new Error('Invalid credentials');
         }
-        const isPasswordValid = await argon2.verify(existingUser.password, user.password)
+        const isPasswordValid = await argon2.verify(existingUser.password, user.password);
         if (isPasswordValid) {
           resolve(existingUser);
         } else {
@@ -210,32 +218,91 @@ const unFollowingHelper = async (_id, userId) => {
     await follower.save();
     await following.save();
 
-    console.log('Unfollow successful');
-    return { message: 'Unfollow successful' };
+    return { message: 'Un follow successful' };
   } catch (error) {
     console.error('Error in unFollowingHelper:', error);
     throw error; // Rethrow to allow caller to handle or log the error further
   }
 };
 
-const profileHelper = (id) => {
+const profileHelper = (id, _id) => {
   return new Promise(async (resolve, reject) => {
-    const user = User.findById(id)
-      .populate('followers')
-      .populate('following');
-    if (!user) throw new Error('User not found');
-    resolve(user);
+    try {
+      const profile = await User.findById(id)
+        .populate('followers')
+        .populate('following');
+      const user = await User.findById(_id)
+        .populate('followers')
+        .populate('following');
+
+      if (!user) throw new Error('User not found');
+      if (!profile) throw new Error('Profile not found');
+
+      resolve({ user, profile });
+    } catch (error) {
+      reject(error);
+    }
   });
 };
 
-const searchHelper = async (id, value) => {
-  return new Promise((resolve, reject) => {
-    const regExp = new RegExp(value, 'i'); // Create a regular expression for the search
-    const users = User.find({ userName: regExp })
-      resolve(users); // Resolve with the found users
-  });
-}
+const userProfileHelper = async(id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
 
+      const profile = await User.findById(id)
+        .populate('followers')
+        .populate('following');
+      const user = await User.findById(id)
+        .populate('followers')
+        .populate('following');
+
+      if (!user) throw new Error('User not found');
+      if (!profile) throw new Error('User not found');
+
+      resolve({ profile, user });
+    } catch (error) {
+      reject(error);
+    }
+  });
+};
+const searchHelper = async (id, value) => {
+  return new Promise((resolve) => {
+    const regExp = new RegExp(value, 'i'); // Create a regular expression for the search
+    const users = User.find({ userName: regExp });
+    resolve(users); // Resolve with the found users
+  });
+};
+
+const uploadProfileHelper = async (id, file) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const result = await cloudinary.uploader.upload(file.path, {
+        folder: 'Social Media'
+      });
+      const profile = await User.findByIdAndUpdate(id, {
+        profilePicture: result.secure_url
+      }, { new: true }); // Assuming you want the updated document
+      resolve(profile);
+    } catch (error) {
+      reject(error);
+    }
+  });
+};
+const  createPostHelper = async (data, content, id) => {
+  try {
+    const post = new Posts({
+      author: id,
+      content,
+      ...data
+    });
+
+    const savedPost = await post.save();
+    return savedPost;
+  } catch (error) {
+    console.log(error);
+    throw new Error(error.message);
+  }
+};
 
 export {
   userLoginHelper,
@@ -249,4 +316,7 @@ export {
   profileHelper,
   unFollowingHelper,
   searchHelper,
+  userProfileHelper,
+  uploadProfileHelper,
+  createPostHelper,
 };

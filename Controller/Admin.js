@@ -1,4 +1,4 @@
-import { adminGoogleLoginHelper, adminLoginHelper, googleLoginAdmin, usersHelper } from '../helper/admin.js';
+import { adminGoogleLoginHelper, adminLoginHelper, googleLoginAdmin, usersHelper,fetchUserHelper } from '../helper/admin.js';
 import  {generateAdminAccessToken, generateToken}  from '../Utils/admin/generateTokens.js';
 import { verifyAdminRefreshToken  } from '../Utils/admin/verifyAdminRefreshToken.js';
 import Admin from '../model/AdminModel.js';
@@ -145,10 +145,28 @@ const usersList = async(req,res) => {
     return res.status(500).json({ message: 'Failed to authenticate' }); 
   }
 };
+
+const fetchUser = (req,res) => {
+  const {id} = req.params;
+  try {
+    fetchUserHelper(id)
+      .then((data) => {
+        return res.status(200).json({ data: data, message: 'User Details' });
+      })
+      .catch((err) => {
+        return res.status(500).json({ message: 'Internal Server Error',err });
+      });
+  }
+  catch (error)  {
+    console.error(error);
+    return res.status(500).json({ message: 'Failed to authenticate' });
+  }
+};
 export {
   verifyAdmin,
   adminLogin,
   loginWithGoogle,
   generateAccessToken,
   usersList,
+  fetchUser,
 };

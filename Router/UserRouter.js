@@ -11,10 +11,18 @@ import {
   profile,
   userProfile,
   unFollowUser,
-  userSearch
+  userSearch,
+  uploadProfile,
+  createPost,
+  uploadImageCloud,
+  deleteImage
 } from '../controller/User.js';
+
 import express from 'express';
 import { userAuthentication, userProtectedRoutes } from '../Middlewares/userAuthentication.js';
+import multer from 'multer';
+const upload = multer({ dest: 'uploads/' }); 
+
 const router = express.Router();
 router.post('/otpValidation', otpValidation);
 router.post('/signUp', userSignUp);
@@ -29,5 +37,8 @@ router.get('/unFollowUser/:id',userProtectedRoutes, unFollowUser);
 router.get('/profile/:id', userProtectedRoutes, profile);
 router.get('/profile', userProtectedRoutes, userProfile);
 router.get('/search/:value', userProtectedRoutes, userSearch);
-
+router.post('/profile/upload', userProtectedRoutes,upload.single('file'), uploadProfile);
+router.post('/createPost/:content', userProtectedRoutes, createPost);
+router.post('/uploadImage', userProtectedRoutes,upload.single('file'),  uploadImageCloud);
+router.post('/deleteImage', userProtectedRoutes, deleteImage);
 export default router;

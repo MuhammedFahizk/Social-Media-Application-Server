@@ -5,6 +5,7 @@ import {
   loginWithGoogle,
   verifyAdmin,
   usersList,
+  fetchUser,
 } from '../controller/Admin.js';
 import { adminAuthentication } from '../Middlewares/adminAuthentication.js';
 
@@ -16,5 +17,7 @@ router.post('/generateAccessToken', generateAccessToken);
 router.post('/loginWithGoogle', loginWithGoogle);
 router.post('/verifyAdmin',adminAuthentication, verifyAdmin);
 router.get('/users', usersList);
+router.get('/users/:id', fetchUser);
+
 
 export default router;
