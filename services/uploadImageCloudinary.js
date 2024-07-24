@@ -5,6 +5,7 @@ export const uploadImageCloudinary = async (file) => {
     const result = await cloudinary.uploader.upload(file.path, {
       folder: 'Posts'
     });
+    console.log(result);
     return result;
   } catch (error) {
     console.error(error);

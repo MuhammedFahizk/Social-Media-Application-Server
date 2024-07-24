@@ -15,7 +15,8 @@ import {
   uploadProfile,
   createPost,
   uploadImageCloud,
-  deleteImage
+  deleteImage,
+  createStory
 } from '../controller/User.js';
 
 import express from 'express';
@@ -38,7 +39,9 @@ router.get('/profile/:id', userProtectedRoutes, profile);
 router.get('/profile', userProtectedRoutes, userProfile);
 router.get('/search/:value', userProtectedRoutes, userSearch);
 router.post('/profile/upload', userProtectedRoutes,upload.single('file'), uploadProfile);
+
 router.post('/createPost/:content', userProtectedRoutes, createPost);
+router.post('/createStory/:content', userProtectedRoutes, createStory);
 router.post('/uploadImage', userProtectedRoutes,upload.single('file'),  uploadImageCloud);
 router.post('/deleteImage', userProtectedRoutes, deleteImage);
 export default router;

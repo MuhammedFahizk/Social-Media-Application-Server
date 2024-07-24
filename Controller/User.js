@@ -16,6 +16,7 @@ import {
   userProfileHelper,
   uploadProfileHelper,
   createPostHelper,
+  createStoryHelper,
 } from '../helper/user.js';
 import { User } from '../model/User.js';
 import { deleteImageCloudinary } from '../services/deleteImageCloudinary.js';
@@ -367,6 +368,25 @@ const createPost =  async(req, res) => {
     return res.status(500).json({ message: 'internal server error', error }); 
   }
 };
+const createStory =  async(req, res) => {
+  try {
+    const {content} = req.params;
+    const { _id } = req.user;
+    const  body   = req.body;
+    console.log(req.body);
+    createStoryHelper(body, content, _id)
+      .then((response) => {
+        return res.status(200).json({ message: 'post success', response });
+      })
+      .catch((error) => {
+        console.log(error);
+        return res.status(500).json({ message: 'post failed', error });
+      });
+  } catch (error) { 
+    console.log(error);
+    return res.status(500).json({ message: 'internal server error', error }); 
+  }
+};
 const uploadImageCloud = (req, res) => {
   try {
     const { image } = req.body;
@@ -436,6 +456,7 @@ export {
   userSearch,
   uploadProfile,
   createPost,
+  createStory,
   uploadImageCloud,
   deleteImage,
 };

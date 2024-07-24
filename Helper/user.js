@@ -255,11 +255,11 @@ const userProfileHelper = async(id) => {
       const user = await User.findById(id)
         .populate('followers')
         .populate('following');
-
-      if (!user) throw new Error('User not found');
+      const post = await Posts.find({author: id})
+        .populate('author');
       if (!profile) throw new Error('User not found');
 
-      resolve({ profile, user });
+      resolve({ profile, post, user });
     } catch (error) {
       reject(error);
     }
@@ -304,6 +304,32 @@ const  createPostHelper = async (data, content, id) => {
   }
 };
 
+const createStoryHelper = async (data, content, id) => {
+  try {
+    const post = {
+      imageUrl: data.imageUrl,
+    };
+
+    // Find the user by ID
+    const user = await User.findById(id);
+    
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Push the new story post to the story array
+    user.story.push(post);
+
+    // Save the user document
+    const savedUser = await user.save();
+    return savedUser;
+  } catch (error) {
+    console.error(error);
+    throw new Error(error.message);
+  }
+};
+
+
 export {
   userLoginHelper,
   logoutHelper,
@@ -319,4 +345,5 @@ export {
   userProfileHelper,
   uploadProfileHelper,
   createPostHelper,
+  createStoryHelper,
 };
