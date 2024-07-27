@@ -168,17 +168,53 @@ const findSuggestion = async (id) => {
   
     // Ensure `following` is an array if it's null or undefined
     const following = user.following || [];
+    const followingIds = following.map(follow => follow._id);
   
-    // Query users excluding those in the `following` list
-    const users = await User.find({
-      _id: { $ne: id, $nin: following }
-    });
-  
-    return { users, user };
+    // Find users followed by the users in the `following` list, excluding current user and already followed users
+    const users = await User.aggregate([
+      {
+        $match: {
+          _id: { $ne: id }
+        }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'following',
+          foreignField: '_id',
+          as: 'suggestedUsers'
+        }
+      },
+      {
+        $unwind: '$suggestedUsers'
+      },
+      {
+        $match: {
+          'suggestedUsers._id': { $ne: id },
+          'suggestedUsers._id': { $nin: followingIds }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          suggestedUsers: { $addToSet: '$suggestedUsers' }
+        }
+      },
+      {
+        $project: {
+          _id: 0,
+          suggestedUsers: 1
+        }
+      }
+    ]);
+
+    return { users: users.length > 0 ? users[0].suggestedUsers : [], user };
   } catch (error) {
+    console.error('Error finding user suggestions:', error);
     throw error;
   }
 };
+
 
 const followingHelper = (_id, userId) => {
   return new Promise(async (resolve, reject) => {
