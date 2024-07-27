@@ -265,13 +265,66 @@ const userProfileHelper = async(id) => {
     }
   });
 };
-const searchHelper = async (id, value) => {
-  return new Promise((resolve) => {
-    const regExp = new RegExp(value, 'i'); // Create a regular expression for the search
-    const users = User.find({ userName: regExp });
-    resolve(users); // Resolve with the found users
+const searchHelper = async (id, value, item, offset) => {
+  offset = parseInt(offset, 10);
+
+  return new Promise(async (resolve, reject) => {
+    let queryResult;
+
+    switch (item) {
+      case 'users':
+        try {
+          const usersPipeline = [
+            {
+              $match: {
+                $or: [
+                  { userName: { $regex: value, $options: 'i' }},
+                  { email: { $regex: value, $options: 'i' } }
+                ]
+              }
+            }
+          ];
+
+          if (offset > 0) {
+            usersPipeline.push({ $skip: offset });
+          }
+
+          usersPipeline.push({ $limit: 10 });
+
+          queryResult = await User.aggregate(usersPipeline);
+        } catch (error) {
+          return reject(error);
+        }
+        break;
+
+      case 'blogs':
+        try {
+          queryResult = await Blog.find({ title: new RegExp(value, 'i') })
+            .skip(offset)
+            .limit(5);
+        } catch (error) {
+          return reject(error);
+        }
+        break;
+
+      case 'images':
+        try {
+          queryResult = await Image.find({ description: new RegExp(value, 'i') })
+            .skip(offset)
+            .limit(2);
+        } catch (error) {
+          return reject(error);
+        }
+        break;
+
+      default:
+        return reject(new Error(`Unsupported item: ${item}`));
+    }
+
+    resolve(queryResult);
   });
 };
+
 
 const uploadProfileHelper = async (id, file) => {
   return new Promise(async (resolve, reject) => {

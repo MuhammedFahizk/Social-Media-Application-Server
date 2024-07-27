@@ -318,21 +318,43 @@ const userProfile = async (req,res) => {
     });
 };
 
-const userSearch = (req,res) => { 
+const userSearch = (req, res) => {
   try {
-    const { value} = req.params;
+    // Extracting parameters
+    const { value } = req.params;
     const { _id } = req.user;
-    searchHelper(_id, value)
+    const { item, offset } = req.query;
+
+    // Call the search helper function
+    searchHelper(_id, value, item, offset)
       .then((response) => {
-        return res.status(200).json({message:'search success',response });
+        // On successful search, format the response
+        return res.status(200).json({
+          message: 'Search successful',
+          data: response,
+          timestamp: Date.now(), // Optional: Include a timestamp for tracking
+        });
       })
       .catch((error) => {
-        return res.status(500).json({message:'search failed',error });
+        // Handle errors from the search helper
+        console.error('Error in searchHelper:', error); // Log the error for debugging
+        return res.status(500).json({
+          message: 'Search failed',
+          error: error.message, // Include the error message in the response
+          timestamp: Date.now(),
+        });
       });
   } catch (error) {
-    return res.status(500).json({message: 'internal server error', error});
+    // Handle unexpected errors in the route handler
+    console.error('Unexpected error in userSearch:', error);
+    return res.status(500).json({
+      message: 'Internal Server Error',
+      error: error.message,
+      timestamp: Date.now(),
+    });
   }
 };
+
 
 const uploadProfile = (req, res) => {
   const { file } = req; // Assuming 'file' is the field name for the uploaded file
