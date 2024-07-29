@@ -11,6 +11,7 @@ cloudinary.config({
 });
 import argon2 from 'argon2';
 import Posts from '../model/Posts.js';
+import { populate } from 'dotenv';
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const userValidateEmailHelper = async (user) => {
   try {
@@ -270,11 +271,12 @@ const profileHelper = (id, _id) => {
       const user = await User.findById(_id)
         .populate('followers')
         .populate('following');
-
+        const post = await Posts.find({author: id})
+        .populate('author');
       if (!user) throw new Error('User not found');
       if (!profile) throw new Error('Profile not found');
 
-      resolve({ user, profile });
+      resolve({ user, profile, post  });
     } catch (error) {
       reject(error);
     }
@@ -297,6 +299,7 @@ const userProfileHelper = async(id) => {
 
       resolve({ profile, post, user });
     } catch (error) {
+      console.log(error);
       reject(error);
     }
   });
@@ -388,7 +391,6 @@ const  createPostHelper = async (data, content, id) => {
     const savedPost = await post.save();
     return savedPost;
   } catch (error) {
-    console.log(error);
     throw new Error(error.message);
   }
 };
@@ -417,6 +419,62 @@ const createStoryHelper = async (data, content, id) => {
     throw new Error(error.message);
   }
 };
+const fetchPostHelper = async (id) => {
+  try {
+    // Ensure this line is correctly implemented based on your database setup
+    const post = await Posts.findById(id).populate('author');
+    return post;
+  } catch (error) {
+    console.error(error); // Log the error for debugging purposes
+    throw error; // Rethrow the error to be caught by the calling function
+  }
+};
+const unLikePostHelper = (id, _id) => {
+  return new Promise((resolve, reject) => {
+    Posts.updateOne(
+      { _id: id },
+      { $pull: { likes: _id } }
+    )
+      .then(result => {
+        if (result.matchedCount === 0) {
+          // No matching document found
+          return reject(new Error('No matching post found to unlike'));
+        }
+        resolve(result);
+      })
+      .catch(error => {
+        reject(error);
+      });
+  });
+};
+
+
+const likePostHelper = async (id, _id) => {
+  try {
+    // Check if the user has already liked the post
+    const post = await Posts.findOne({ _id: id, likes: _id });
+
+    if (post) {
+      // If the post is found with the user's ID in likes, reject the promise
+      return Promise.reject(new Error('User has already liked this post'));
+    }
+
+    // If the user has not liked the post, proceed to add the like
+    const result = await Posts.updateOne(
+      { _id: id },
+      { $push: { likes: _id } }
+    );
+
+    if (result.matchedCount === 0) {
+      // No matching document found
+      return Promise.reject(new Error('No matching post found to like'));
+    }
+
+    return result;
+  } catch (error) {
+    return Promise.reject(error);
+  }
+};
 
 
 export {
@@ -435,4 +493,7 @@ export {
   uploadProfileHelper,
   createPostHelper,
   createStoryHelper,
+  fetchPostHelper,
+  unLikePostHelper,
+  likePostHelper,
 };

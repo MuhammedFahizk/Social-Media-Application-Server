@@ -16,7 +16,10 @@ import {
   createPost,
   uploadImageCloud,
   deleteImage,
-  createStory
+  createStory,
+  fetchPost,
+  likePost,
+  unLikePost
 } from '../controller/User.js';
 
 import express from 'express';
@@ -39,9 +42,12 @@ router.get('/profile/:id', userProtectedRoutes, profile);
 router.get('/profile', userProtectedRoutes, userProfile);
 router.get('/search/:value', userProtectedRoutes, userSearch);
 router.post('/profile/upload', userProtectedRoutes,upload.single('file'), uploadProfile);
-
 router.post('/createPost/:content', userProtectedRoutes, createPost);
 router.post('/createStory/:content', userProtectedRoutes, createStory);
 router.post('/uploadImage', userProtectedRoutes,upload.single('file'),  uploadImageCloud);
 router.post('/deleteImage', userProtectedRoutes, deleteImage);
+router.get('/post/:id', userProtectedRoutes, fetchPost);
+router.get('/likePost/:id', userProtectedRoutes, likePost);
+router.delete('/unLikePost/:id', userProtectedRoutes, unLikePost);
+
 export default router;

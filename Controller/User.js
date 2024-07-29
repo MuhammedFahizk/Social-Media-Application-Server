@@ -17,6 +17,9 @@ import {
   uploadProfileHelper,
   createPostHelper,
   createStoryHelper,
+  fetchPostHelper,
+  likePostHelper,
+  unLikePostHelper,
 } from '../helper/user.js';
 import { User } from '../model/User.js';
 import { deleteImageCloudinary } from '../services/deleteImageCloudinary.js';
@@ -278,30 +281,23 @@ const unFollowUser = async (req,res) => {
 
 
 const profile = (req, res) => {
-  // Validate request parameters
   if (!req.user || !req.params.id) {
     return res.status(400).json({ error: 'Missing required user information.' });
   }
 
   const { _id } = req.user;
   const { id } = req.params;
-
-  // Determine which ID to use
-  // const userId = id ? id : _id;
-
   profileHelper(id, _id)
     .then((response) => {
       res.status(200).json(response);
     })
     .catch((error) => {
-      // Provide more specific error responses based on the error type
       if (error) {
         return res.status(404).json({ error: 'Profile not found' });
       }
       res.status(500).json({ error: 'Internal Server Error' });
     });
 };
-
 const userProfile = async (req,res) => {
   const { _id } = req.user;
   userProfileHelper(_id)
@@ -309,34 +305,29 @@ const userProfile = async (req,res) => {
       res.status(200).json(response);
     })
     .catch((error) => {
-      // Provide more specific error responses based on the error type
       if (error) {
-        console.error(error);
         return res.status(404).json({ error: 'Profile not found' });
       }
+
       res.status(500).json({ error: 'Internal Server Error' });
     });
 };
 
 const userSearch = (req, res) => {
   try {
-    // Extracting parameters
     const { value } = req.params;
     const { _id } = req.user;
     const { item, offset } = req.query;
-
-    // Call the search helper function
     searchHelper(_id, value, item, offset)
       .then((response) => {
         // On successful search, format the response
         return res.status(200).json({
           message: 'Search successful',
           data: response,
-          timestamp: Date.now(), // Optional: Include a timestamp for tracking
+          timestamp: Date.now(),
         });
       })
       .catch((error) => {
-        // Handle errors from the search helper
         console.error('Error in searchHelper:', error); // Log the error for debugging
         return res.status(500).json({
           message: 'Search failed',
@@ -345,7 +336,6 @@ const userSearch = (req, res) => {
         });
       });
   } catch (error) {
-    // Handle unexpected errors in the route handler
     console.error('Unexpected error in userSearch:', error);
     return res.status(500).json({
       message: 'Internal Server Error',
@@ -376,17 +366,14 @@ const createPost =  async(req, res) => {
     const {content} = req.params;
     const { _id } = req.user;
     const  body   = req.body;
-    console.log(req.body);
     createPostHelper(body, content, _id)
       .then((response) => {
         return res.status(200).json({ message: 'post success', response });
       })
       .catch((error) => {
-        console.log(error);
         return res.status(500).json({ message: 'post failed', error });
       });
   } catch (error) { 
-    console.log(error);
     return res.status(500).json({ message: 'internal server error', error }); 
   }
 };
@@ -428,7 +415,6 @@ const uploadImageCloud = (req, res) => {
 };
 const deleteImage = async (req, res) => {
   const { url } = req.body;
-
   if (!url) {
     return res.status(400).json({ message: 'No URL provided' });
   }
@@ -436,10 +422,8 @@ const deleteImage = async (req, res) => {
   try {
     const publicId = extractPublicId(url);
     console.log('Public ID:', publicId);
-
     const result = await deleteImageCloudinary(publicId);
     console.log('Result:', result);
-    // Check the result to confirm deletion
     if (result.result === 'ok') {
       res.status(200).json({ message: 'Image deleted successfully' });
     } else {
@@ -450,10 +434,8 @@ const deleteImage = async (req, res) => {
     res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 };
-
 const extractPublicId = (url) => {
   try {
-    // Assuming URL structure like http://res.cloudinary.com/demo/image/upload/v1234567890/sample.jpg
     const urlParts = new URL(url);
     const pathParts = urlParts.pathname.split('/');
     return pathParts[pathParts.length - 1].split('.')[0];
@@ -461,7 +443,52 @@ const extractPublicId = (url) => {
     throw new Error('Invalid URL format');
   }
 };
+const fetchPost = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const post = await fetchPostHelper(id);
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+    res.status(200).json(post);
+  } catch (error) {
+    console.error(error); // Log the error for debugging purposes
+    res.status(500).json({ message: 'An error occurred', error: error.message });
+  }
+};
 
+const unLikePost = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { _id } = req.user;
+
+    if (!id || !_id) {
+      return res.status(400).json({ message: 'Invalid request parameters' });
+    }
+    await unLikePostHelper(id, _id);
+
+    res.status(200).json({ message: 'Post unliked successfully' });
+  } catch (error) {
+    console.error('Error un liking post:', error);
+    res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+};
+const likePost = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { _id } = req.user;
+
+    if (!id || !_id) {
+      return res.status(400).json({ message: 'Invalid request parameters' });
+    }
+    await likePostHelper(id, _id);
+
+    res.status(200).json({ message: 'Post unliked successfully' });
+  } catch (error) {
+    console.error('Error un liking post:', error);
+    res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+};
 export {
   userSignUp,
   verifyUser,
@@ -481,4 +508,7 @@ export {
   createStory,
   uploadImageCloud,
   deleteImage,
+  fetchPost,
+  unLikePost,
+  likePost,
 };
