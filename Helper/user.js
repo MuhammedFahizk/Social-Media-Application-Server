@@ -391,6 +391,7 @@ const  createPostHelper = async (data, content, id) => {
     const savedPost = await post.save();
     return savedPost;
   } catch (error) {
+    console.log(error);
     throw new Error(error.message);
   }
 };
@@ -423,13 +424,15 @@ const fetchPostHelper = async (id) => {
   try {
     // Ensure this line is correctly implemented based on your database setup
     const post = await Posts.findById(id).populate('author')
-
       .populate({
         path: 'comments.author',
         select: 'userName', 
         select: 'profilePicture'
         // Adjust fields as needed
       }); ;
+      if (post) {
+        post.comments.sort((a, b) => b.timestamps - a.timestamps);
+      }
     return post;
   } catch (error) {
     console.error(error); // Log the error for debugging purposes

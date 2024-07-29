@@ -33,7 +33,10 @@ const postSchema = new mongoose.Schema(
     },
     body: {
       type: String,
-      required: true,
+    },
+    hashTag: {
+      type: String,
+
     },
     likes: [
       { 
