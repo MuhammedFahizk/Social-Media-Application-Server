@@ -271,7 +271,7 @@ const profileHelper = (id, _id) => {
       const user = await User.findById(_id)
         .populate('followers')
         .populate('following');
-        const post = await Posts.find({author: id})
+      const post = await Posts.find({author: id})
         .populate('author');
       if (!user) throw new Error('User not found');
       if (!profile) throw new Error('Profile not found');
@@ -422,7 +422,14 @@ const createStoryHelper = async (data, content, id) => {
 const fetchPostHelper = async (id) => {
   try {
     // Ensure this line is correctly implemented based on your database setup
-    const post = await Posts.findById(id).populate('author');
+    const post = await Posts.findById(id).populate('author')
+
+      .populate({
+        path: 'comments.author',
+        select: 'userName', 
+        select: 'profilePicture'
+        // Adjust fields as needed
+      }); ;
     return post;
   } catch (error) {
     console.error(error); // Log the error for debugging purposes
@@ -475,6 +482,26 @@ const likePostHelper = async (id, _id) => {
     return Promise.reject(error);
   }
 };
+const userCreateComment = async (postId, userId, commentContent) => {
+  try {
+    console.log(commentContent);
+    // Update the post by pushing a new comment object into the comments array
+    const result = await Posts.updateOne(
+      { _id: postId },
+      { $push: { comments: { author: userId, content: commentContent } } }
+    );
+
+    // Check if a document matched the query
+    if (result.matchedCount === 0) {
+      throw new Error('No matching post found to add the comment');
+    }
+
+    return result;
+  } catch (error) {
+    // Handle errors and reject the promise with the error message
+    throw new Error(error.message);
+  }
+};
 
 
 export {
@@ -496,4 +523,5 @@ export {
   fetchPostHelper,
   unLikePostHelper,
   likePostHelper,
+  userCreateComment
 };

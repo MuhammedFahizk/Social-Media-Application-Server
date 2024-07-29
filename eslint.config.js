@@ -24,7 +24,6 @@ export default {
     'space-unary-ops': 'error',
     'quotes': ['error', 'single'],
     'max-len': ['error', { 'code': 200 }],
-    'max-lines': ['error', { 'max': 500 }],
     'keyword-spacing': 'error',
     'multiline-ternary': ['error', 'never'],
     'no-mixed-operators': 'error',

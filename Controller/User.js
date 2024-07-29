@@ -20,6 +20,7 @@ import {
   fetchPostHelper,
   likePostHelper,
   unLikePostHelper,
+  userCreateComment,
 } from '../helper/user.js';
 import { User } from '../model/User.js';
 import { deleteImageCloudinary } from '../services/deleteImageCloudinary.js';
@@ -489,6 +490,24 @@ const likePost = async (req, res) => {
     res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 };
+const commentPost = async (req, res) => {
+  try {
+    const { id } = req.params; // Extract post ID from request parameters
+    const { _id } = req.user; // Extract user ID from request user
+    const { comment } = req.body; // Extract comment text from request body
+
+    // Call the helper function to add the comment
+    const result = await userCreateComment(id, _id, comment,);
+
+    // Send a success response if the comment was added
+    res.status(200).json({ message: 'Comment added successfully', result });
+  } catch (error) {
+    // Log the error and send a response with the error message
+    console.error('Error adding comment:', error);
+    res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+};
+
 export {
   userSignUp,
   verifyUser,
@@ -511,4 +530,5 @@ export {
   fetchPost,
   unLikePost,
   likePost,
+  commentPost,
 };

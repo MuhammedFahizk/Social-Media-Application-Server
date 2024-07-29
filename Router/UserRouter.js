@@ -19,7 +19,8 @@ import {
   createStory,
   fetchPost,
   likePost,
-  unLikePost
+  unLikePost,
+  commentPost
 } from '../controller/User.js';
 
 import express from 'express';
@@ -49,5 +50,7 @@ router.post('/deleteImage', userProtectedRoutes, deleteImage);
 router.get('/post/:id', userProtectedRoutes, fetchPost);
 router.get('/likePost/:id', userProtectedRoutes, likePost);
 router.delete('/unLikePost/:id', userProtectedRoutes, unLikePost);
+router.post('/commentPost/:id', userProtectedRoutes, commentPost);
+
 
 export default router;
