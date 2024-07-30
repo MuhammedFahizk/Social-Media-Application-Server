@@ -554,25 +554,9 @@ const fetchPostsHelper = async (heading, offset, id) => {
             $unwind: '$author'
           },
           {
-            $lookup: {
-              from: 'comments',
-              localField: '_id',
-              foreignField: 'postId',
-              as: 'comments'
-            }
-          },
-          {
-            $lookup: {
-              from: 'users',
-              localField: 'comments.author',
-              foreignField: '_id',
-              as: 'commentAuthors'
-            }
-          },
-          {
             $addFields: {
-              totalLikes: { $size: '$likes' },
-              totalComments: { $size: '$comments' }
+              totalLikes: { $size:{ $ifNull: ['$likes', []]}  },
+              totalComments: { $size: {$ifNull: ['$comments',[]]} }
             }
           },
           {
@@ -606,6 +590,7 @@ const fetchPostsHelper = async (heading, offset, id) => {
     throw error;
   }
 };
+
 
 
 
