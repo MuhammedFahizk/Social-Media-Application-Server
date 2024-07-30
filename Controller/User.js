@@ -1,3 +1,4 @@
+import { response } from 'express';
 import { generateUserAccessToken } from '../Utils/User/generateUserAccessToken.js';
 import { generateUserToken } from '../Utils/User/generateUserToken.js';
 import { verifyUserRefreshToken } from '../Utils/User/verifyUserRefreshToken.js';
@@ -21,6 +22,7 @@ import {
   likePostHelper,
   unLikePostHelper,
   userCreateComment,
+  fetchPostsHelper,
 } from '../helper/user.js';
 import { User } from '../model/User.js';
 import { deleteImageCloudinary } from '../services/deleteImageCloudinary.js';
@@ -509,6 +511,18 @@ const commentPost = async (req, res) => {
   }
 };
 
+const fetchPosts = async (req, res) => {
+  try {
+    const { heading, offset } = req.params;
+    const { _id } = req.user;
+    const response = await fetchPostsHelper(heading, offset, _id);
+    res.status(200).json(response);
+  } catch (error) {
+    console.log('Error fetching posts:', error);
+    res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+};
+
 export {
   userSignUp,
   verifyUser,
@@ -532,4 +546,5 @@ export {
   unLikePost,
   likePost,
   commentPost,
+  fetchPosts,
 };

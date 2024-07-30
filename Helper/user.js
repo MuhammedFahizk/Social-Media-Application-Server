@@ -338,9 +338,10 @@ const searchHelper = async (id, value, item, offset) => {
 
       case 'blogs':
         try {
-          queryResult = await Blog.find({ title: new RegExp(value, 'i') })
+          queryResult = await Posts.find({ title: new RegExp(value, 'i') })
             .skip(offset)
-            .limit(5);
+            .limit(10)
+            .populate('author');
         } catch (error) {
           return reject(error);
         }
@@ -430,9 +431,9 @@ const fetchPostHelper = async (id) => {
         select: 'profilePicture'
         // Adjust fields as needed
       }); ;
-      if (post) {
-        post.comments.sort((a, b) => b.timestamps - a.timestamps);
-      }
+    if (post) {
+      post.comments.sort((a, b) => b.timestamps - a.timestamps);
+    }
     return post;
   } catch (error) {
     console.error(error); // Log the error for debugging purposes
@@ -487,7 +488,7 @@ const likePostHelper = async (id, _id) => {
 };
 const userCreateComment = async (postId, userId, commentContent) => {
   try {
-    console.log(commentContent);
+
     // Update the post by pushing a new comment object into the comments array
     const result = await Posts.updateOne(
       { _id: postId },
@@ -505,6 +506,107 @@ const userCreateComment = async (postId, userId, commentContent) => {
     throw new Error(error.message);
   }
 };
+
+const fetchPostsHelper = async (heading, offset, id) => {
+  let postItems = [];
+  offset = parseInt(offset);
+  console.log("Heading:", heading);
+  try {
+    const user = await User.findById(id);
+    if (!user && heading === 'Friends') throw new Error('User not found');
+
+    switch (heading) {
+      case 'Recent':
+        postItems = await Posts.find()
+          .sort({ createdAt: -1 })
+          .skip(offset)
+          .limit(5)
+          .populate('author')
+          .populate({
+            path: 'comments.author',
+            select: 'userName profilePicture'
+          });
+        break;
+
+      case 'Friends':
+        postItems = await Posts.find({ author: { $in: user.following } })
+          .sort({ createdAt: -1 })
+          .skip(offset)
+          .limit(5)
+          .populate('author')
+          .populate({
+            path: 'comments.author',
+            select: 'userName profilePicture'
+          });
+        break;
+
+      case 'Popular':
+        postItems = await Posts.aggregate([
+          {
+            $lookup: {
+              from: 'users',
+              localField: 'author',
+              foreignField: '_id',
+              as: 'author'
+            }
+          },
+          {
+            $unwind: '$author'
+          },
+          {
+            $lookup: {
+              from: 'comments',
+              localField: '_id',
+              foreignField: 'postId',
+              as: 'comments'
+            }
+          },
+          {
+            $lookup: {
+              from: 'users',
+              localField: 'comments.author',
+              foreignField: '_id',
+              as: 'commentAuthors'
+            }
+          },
+          {
+            $addFields: {
+              totalLikes: { $size: '$likes' },
+              totalComments: { $size: '$comments' }
+            }
+          },
+          {
+            $addFields: {
+              engagementScore: {
+                $add: [
+                  { $multiply: ['$totalLikes', 1] },
+                  { $multiply: ['$totalComments', 3] }
+                ]
+              }
+            }
+          },
+          {
+            $sort: {
+              engagementScore: -1,
+              createdAt: -1
+            }
+          },
+          { $skip: offset },
+          { $limit: 5 }
+        ]);
+        break;
+
+      default:
+        throw new Error(`Unsupported heading: ${heading}`);
+    }
+
+    return postItems;
+  } catch (error) {
+    console.error('Error fetching post helper:', error);
+    throw error;
+  }
+};
+
 
 
 export {
@@ -526,5 +628,6 @@ export {
   fetchPostHelper,
   unLikePostHelper,
   likePostHelper,
-  userCreateComment
+  userCreateComment,
+  fetchPostsHelper
 };
