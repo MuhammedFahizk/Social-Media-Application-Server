@@ -510,7 +510,7 @@ const userCreateComment = async (postId, userId, commentContent) => {
 const fetchPostsHelper = async (heading, offset, id) => {
   let postItems = [];
   offset = parseInt(offset);
-  console.log("Heading:", heading);
+  console.log('Heading:', heading);
   try {
     const user = await User.findById(id);
     if (!user && heading === 'Friends') throw new Error('User not found');
@@ -550,13 +550,11 @@ const fetchPostsHelper = async (heading, offset, id) => {
               as: 'author'
             }
           },
-          {
-            $unwind: '$author'
-          },
+          { $unwind: '$author' },
           {
             $addFields: {
-              totalLikes: { $size:{ $ifNull: ['$likes', []]}  },
-              totalComments: { $size: {$ifNull: ['$comments',[]]} }
+              totalLikes: { $size: { $ifNull: ['$likes', []] } },
+              totalComments: { $size: { $ifNull: ['$comments', []] } }
             }
           },
           {
@@ -570,6 +568,70 @@ const fetchPostsHelper = async (heading, offset, id) => {
             }
           },
           {
+            $addFields: {
+              commentsAuthorArray: {
+                $cond: {
+                  if: { $isArray: '$comments.author' },
+                  then: '$comments.author',
+                  else: []
+                }
+              }
+            }
+          },
+          {
+            $lookup: {
+              from: 'users',
+              let: { commentAuthors: '$commentsAuthorArray' },
+              pipeline: [
+                { $match: { $expr: { $in: ['$_id', '$$commentAuthors'] } } },
+                { $project: { userName: 1, profilePicture: 1 } }
+              ],
+              as: 'commentAuthors'
+            }
+          },
+          {
+            $addFields: {
+              comments: {
+                $map: {
+                  input: '$comments',
+                  as: 'comment',
+                  in: {
+                    content: '$$comment.content',
+                    author: {
+                      $arrayElemAt: [
+                        {
+                          $filter: {
+                            input: '$commentAuthors',
+                            cond: { $eq: ['$$this._id', '$$comment.author'] }
+                          }
+                        },
+                        0
+                      ]
+                    },
+                    createdAt: '$$comment.createdAt'
+                  }
+                }
+              }
+            }
+          },
+          {
+            $group: {
+              _id: '$_id',
+              author: { $first: '$author' },
+              content: { $first: '$content' },
+              imageUrl: { $first: '$imageUrl' },
+              title: { $first: '$title' },
+              body: { $first: '$body' },
+              hashTag: { $first: '$hashTag' },
+              likes: { $first: '$likes' },
+              comments: { $first: '$comments' },
+              totalLikes: { $first: '$totalLikes' },
+              totalComments: { $first: '$totalComments' },
+              engagementScore: { $first: '$engagementScore' },
+              createdAt: { $first: '$createdAt' }
+            }
+          },
+          {
             $sort: {
               engagementScore: -1,
               createdAt: -1
@@ -579,7 +641,7 @@ const fetchPostsHelper = async (heading, offset, id) => {
           { $limit: 5 }
         ]);
         break;
-
+      
       default:
         throw new Error(`Unsupported heading: ${heading}`);
     }
@@ -590,8 +652,6 @@ const fetchPostsHelper = async (heading, offset, id) => {
     throw error;
   }
 };
-
-
 
 
 export {
