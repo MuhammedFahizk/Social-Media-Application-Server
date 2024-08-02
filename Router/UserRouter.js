@@ -21,7 +21,8 @@ import {
   likePost,
   unLikePost,
   commentPost,
-  fetchPosts
+  fetchPosts,
+  deletePost
 } from '../controller/User.js';
 
 import express from 'express';
@@ -53,4 +54,5 @@ router.get('/likePost/:id', userProtectedRoutes, likePost);
 router.delete('/unLikePost/:id', userProtectedRoutes, unLikePost);
 router.post('/commentPost/:id', userProtectedRoutes, commentPost);
 router.get('/fetchPosts/:heading/:offset', userProtectedRoutes, fetchPosts);
+router.delete('/deletePost/:id',userProtectedRoutes, deletePost);
 export default router;

@@ -11,7 +11,7 @@ cloudinary.config({
 });
 import argon2 from 'argon2';
 import Posts from '../model/Posts.js';
-import { populate } from 'dotenv';
+import { deleteImageCloudinary } from '../services/deleteImageCloudinary.js';
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const userValidateEmailHelper = async (user) => {
   try {
@@ -24,6 +24,7 @@ const userValidateEmailHelper = async (user) => {
       }
       throw new Error('Username already exists');
     }
+
 
     const otpSecret = 'JBSWY3DPEHPK3PXP';
     const { otp, expires } = TOTP.generate(otpSecret);
@@ -86,10 +87,12 @@ const userSignUpHelper = async (user) => {
 const userLoginHelper = async (user) => {
   return new Promise((resolve, reject) => {
     User.findOne({ email: user.email })
-      .then(async(existingUser) => {
-
+      .then(async (existingUser) => {
         if (!existingUser) {
-          throw new Error('Invalid credentials');
+          reject(new Error('Invalid credentials'));
+        }
+        if (existingUser.isBlocked) {
+          reject(new Error('Your account is blocked'));
         }
         const isPasswordValid = await argon2.verify(existingUser.password, user.password);
         if (isPasswordValid) {
@@ -99,10 +102,12 @@ const userLoginHelper = async (user) => {
         }
       })
       .catch((err) => {
-        reject(new Error('Database query failed', err));
+        console.error('Database query failed', err); // Log the actual error for debugging
+        reject(new Error('Database query failed: ' + err.message)); // Pass the actual error message
       });
   });
 };
+
 
 const userGoogleLoginHelper = async (credential) => {
   // Directly use the credential as the ID token since it's the entire JWT string
@@ -132,16 +137,21 @@ const googleLoginUser = async (user) => {
     User.findOne({ email })
       .then((user) => {
         if (user) {
-          resolve(user);
+          if (user.isBlocked) {
+            reject(new Error('Your account is blocked. Please contact support.'));
+          } else {
+            resolve(user);
+          }
         } else {
           reject(new Error('User not found'));
         }
       })
       .catch((error) => {
-        reject(error);
+        reject(new Error('Database query failed: ' + error.message));
       });
   });
 };
+
 
 const logoutHelper = async (refreshToken) => {
   try {
@@ -271,8 +281,12 @@ const profileHelper = (id, _id) => {
       const user = await User.findById(_id)
         .populate('followers')
         .populate('following');
-      const post = await Posts.find({author: id})
-        .populate('author');
+      const post = await Posts.find({ author: id })
+        .populate('author')
+        .populate({
+          path: 'comments.author',
+          select: 'userName profilePicture'
+        });
       if (!user) throw new Error('User not found');
       if (!profile) throw new Error('Profile not found');
 
@@ -293,13 +307,17 @@ const userProfileHelper = async(id) => {
       const user = await User.findById(id)
         .populate('followers')
         .populate('following');
-      const post = await Posts.find({author: id})
-        .populate('author');
+      const post = await Posts.find({ author: id })
+        .populate('author')
+        .populate({
+          path: 'comments.author',
+          select: 'userName profilePicture'
+        });
       if (!profile) throw new Error('User not found');
 
       resolve({ profile, post, user });
     } catch (error) {
-      console.log(error);
+      console.error(error);
       reject(error);
     }
   });
@@ -310,9 +328,9 @@ const searchHelper = async (id, value, item, offset) => {
   return new Promise(async (resolve, reject) => {
     let queryResult;
 
-    switch (item) {
-      case 'users':
-        try {
+    try {
+      switch (item) {
+        case 'users':
           const usersPipeline = [
             {
               $match: {
@@ -331,39 +349,85 @@ const searchHelper = async (id, value, item, offset) => {
           usersPipeline.push({ $limit: 10 });
 
           queryResult = await User.aggregate(usersPipeline);
-        } catch (error) {
-          return reject(error);
-        }
-        break;
+          break;
 
-      case 'blogs':
-        try {
+        case 'blogs':
           queryResult = await Posts.find({ title: new RegExp(value, 'i') })
             .skip(offset)
             .limit(10)
             .populate('author');
-        } catch (error) {
-          return reject(error);
-        }
-        break;
+          break;
 
-      case 'images':
-        try {
-          queryResult = await Image.find({ description: new RegExp(value, 'i') })
-            .skip(offset)
-            .limit(2);
-        } catch (error) {
-          return reject(error);
-        }
-        break;
+        case 'images':
+          queryResult = await Posts.aggregate([
+            {
+              $addFields: {
+                tags: { $split: ['$hashTag', '#'] }
+              }
+            },
+            {
+              $match: {
+                tags: { $elemMatch: { $regex: value, $options: 'i' } }
+              }
+            },
+            {
+              $lookup: {
+                from: 'users',
+                localField: 'author',
+                foreignField: '_id',
+                as: 'author'
+              }
+            },
+            {
+              $unwind: '$author'
+            },
+            {
+              $lookup: {
+                from: 'users',
+                localField: 'comments.author',
+                foreignField: '_id',
+                as: 'commentAuthors'
+              }
+            },
+            {
+              $addFields: {
+                comments: {
+                  $map: {
+                    input: '$comments',
+                    as: 'comment',
+                    in: {
+                      $mergeObjects: [
+                        '$$comment',
+                        {
+                          author: {
+                            $arrayElemAt: [
+                              '$commentAuthors',
+                              { $indexOfArray: ['$commentAuthors._id', '$$comment.author'] }
+                            ]
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            { $limit: 10 }
+          ]);
+          break;
 
-      default:
-        return reject(new Error(`Unsupported item: ${item}`));
+        default:
+          throw new Error(`Unsupported item: ${item}`);
+      }
+
+      resolve(queryResult);
+    } catch (error) {
+      reject(error);
     }
-
-    resolve(queryResult);
   });
 };
+
+
 
 
 const uploadProfileHelper = async (id, file) => {
@@ -430,7 +494,7 @@ const fetchPostHelper = async (id) => {
         select: 'userName', 
         select: 'profilePicture'
         // Adjust fields as needed
-      }); ;
+      }); 
     if (post) {
       post.comments.sort((a, b) => b.timestamps - a.timestamps);
     }
@@ -652,6 +716,24 @@ const fetchPostsHelper = async (heading, offset, id) => {
     throw error;
   }
 };
+const deletePostHelper = async (id, _id) => {
+  try {
+    const post = await Posts.findById(id);
+    if (!post) {
+      return { error: 'Post not found' };
+    }
+
+    if (post.author.toString() !== _id) {
+      return { error: 'You are not authorized to delete this post' };
+    }
+
+    await deleteImageCloudinary(post.imageUrl);
+    await Posts.findByIdAndDelete(id);
+    return { success: 'Post deleted successfully' };
+  } catch (error) {
+    return { error: 'An error occurred while deleting the post' };
+  }
+};
 
 
 export {
@@ -674,5 +756,6 @@ export {
   unLikePostHelper,
   likePostHelper,
   userCreateComment,
-  fetchPostsHelper
+  fetchPostsHelper,
+  deletePostHelper
 };

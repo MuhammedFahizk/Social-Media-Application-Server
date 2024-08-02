@@ -79,14 +79,48 @@ const usersHelper = async () => {
 };
 const fetchUserHelper = (id) => {
   return new Promise((resolve, reject) => {
-    User.findById(id).populate('following').populate('followers')
+    User.findById(id)
+      .populate('following')
+      .populate('followers')
       .then((user) => {
         resolve(user);
       })
       .catch((error) => {
         reject(error);
       });
-
   });
 };
-export { adminLoginHelper,fetchUserHelper, adminGoogleLoginHelper, googleLoginAdmin, usersHelper };
+
+const blockUserHelper = (id) => {
+  return new Promise((resolve, reject) => {
+    User.findByIdAndUpdate(id, { $set: { isBlocked: true } }, { new: true })
+      .then((user) => {
+        resolve(user);
+      })
+      .catch((error) => {
+        reject(error);
+      });
+  });
+};
+
+const unblockUserHelper = (id) => {
+  return new Promise((resolve, reject) => {
+    User.findByIdAndUpdate(id, { $set: { isBlocked: false } }, { new: true })
+      .then((user) => {
+        resolve(user);
+      })
+      .catch((error) => {
+        reject(error);
+      });
+  });
+};
+
+export {
+  adminLoginHelper,
+  fetchUserHelper,
+  adminGoogleLoginHelper,
+  googleLoginAdmin,
+  usersHelper,
+  blockUserHelper,
+  unblockUserHelper,
+};

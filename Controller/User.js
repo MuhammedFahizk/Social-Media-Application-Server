@@ -23,6 +23,7 @@ import {
   unLikePostHelper,
   userCreateComment,
   fetchPostsHelper,
+  deletePostHelper,
 } from '../helper/user.js';
 import { User } from '../model/User.js';
 import { deleteImageCloudinary } from '../services/deleteImageCloudinary.js';
@@ -149,7 +150,8 @@ const userLogin = async (req, res) => {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'Strict',
     });
-    const { userName, _id, profilePicture, email, bio,following, followers } = data;
+
+    const { userName, _id, profilePicture, email, bio, following, followers } = data;
     return res.status(200).json({
       message: 'User logged in',
       accessToken,
@@ -166,23 +168,25 @@ const userLogin = async (req, res) => {
     });
   } catch (error) {
     console.error(error);
+
     if (error.message === 'Invalid credentials') {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
-    return res
-      .status(500)
-      .json({ message: 'Internal server error', error: error.message });
+    if (error.message === 'Your account is blocked') {
+      return res.status(403).json({ message: 'Your account is blocked. Please contact support.' });
+    }
+
+    return res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 };
 
 const loginWithGoogle = async (req, res) => {
   try {
-    const result = await userGoogleLoginHelper(req.body.credential); // Await the promise
+    const result = await userGoogleLoginHelper(req.body.credential); 
     googleLoginUser(result)
       .then(async (response) => {
         const { accessToken, refreshToken } = await generateUserToken(response);
 
-        // Set cookies
         res.cookie('accessToken', accessToken, {
           maxAge: 4 * 60 * 1000, // 4 minutes
           httpOnly: true,
@@ -197,12 +201,12 @@ const loginWithGoogle = async (req, res) => {
         });
 
         // Extract user data
-        const { userName, _id, profilePicture, email, bio,following, followers } = response;
+        const { userName, _id, profilePicture, email, bio, following, followers } = response;
 
         // Respond with tokens and user data
         res.status(200).json({
           error: false,
-          message: 'Admin logged in successfully',
+          message: 'User logged in successfully',
           accessToken,
           refreshToken,
           user: {
@@ -221,9 +225,10 @@ const loginWithGoogle = async (req, res) => {
       });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Failed to authenticate' }); // Send a proper response on failure
+    res.status(500).json({ message: 'Failed to authenticate', error: error.message }); // Send a proper response on failure
   }
 };
+
 
 const logOutUser = (req, res) => {
   const { refreshToken } = req.cookies;
@@ -424,9 +429,8 @@ const deleteImage = async (req, res) => {
   }
 
   try {
-    const publicId = extractPublicId(url);
-    console.log('Public ID:', publicId);
-    const result = await deleteImageCloudinary(publicId);
+    
+    const result = await deleteImageCloudinary(url);
     console.log('Result:', result);
     if (result.result === 'ok') {
       res.status(200).json({ message: 'Image deleted successfully' });
@@ -438,15 +442,7 @@ const deleteImage = async (req, res) => {
     res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 };
-const extractPublicId = (url) => {
-  try {
-    const urlParts = new URL(url);
-    const pathParts = urlParts.pathname.split('/');
-    return pathParts[pathParts.length - 1].split('.')[0];
-  } catch (error) {
-    throw new Error('Invalid URL format');
-  }
-};
+
 const fetchPost = async (req, res) => {
   try {
     const { id } = req.params;
@@ -522,6 +518,19 @@ const fetchPosts = async (req, res) => {
     res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 };
+const deletePost = (req,res) => {
+  const {id} = req.params;
+  const { _id } = req.user;
+  deletePostHelper(id,_id) 
+    .then((result) => {
+      res.status(200).json({ message: 'Post deleted successfully' });
+    })
+    .catch((error) => {
+      console.error('Error deleting post:', error);
+      res.status(500).json({ message: 'Internal server error', error: error.message });
+    });
+
+};
 
 export {
   userSignUp,
@@ -547,4 +556,5 @@ export {
   likePost,
   commentPost,
   fetchPosts,
+  deletePost,
 };

@@ -4,8 +4,9 @@ cloudinary.config({
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
-export const deleteImageCloudinary = (publicId) => {
+export const deleteImageCloudinary = (url) => {
   return new Promise((resolve, reject) => {
+    const publicId = extractPublicId(url);
     cloudinary.uploader.destroy(publicId, (result, error) => {
       if (error) {
         console.error('Cloudinary error object:', error); // Log full error object
@@ -26,4 +27,14 @@ export const deleteImageCloudinary = (publicId) => {
       }
     });
   });
+};
+
+const extractPublicId = (url) => {
+  try {
+    const urlParts = new URL(url);
+    const pathParts = urlParts.pathname.split('/');
+    return pathParts[pathParts.length - 1].split('.')[0];
+  } catch (error) {
+    throw new Error('Invalid URL format');
+  }
 };

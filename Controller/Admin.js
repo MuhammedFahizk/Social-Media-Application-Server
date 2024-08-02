@@ -1,4 +1,4 @@
-import { adminGoogleLoginHelper, adminLoginHelper, googleLoginAdmin, usersHelper,fetchUserHelper } from '../helper/admin.js';
+import { adminGoogleLoginHelper, adminLoginHelper, googleLoginAdmin, usersHelper,fetchUserHelper, unblockUserHelper, blockUserHelper } from '../helper/admin.js';
 import  {generateAdminAccessToken, generateToken}  from '../Utils/admin/generateTokens.js';
 import { verifyAdminRefreshToken  } from '../Utils/admin/verifyAdminRefreshToken.js';
 import Admin from '../model/AdminModel.js';
@@ -162,6 +162,27 @@ const fetchUser = (req,res) => {
     return res.status(500).json({ message: 'Failed to authenticate' });
   }
 };
+
+const blockUser = (req,res) => {
+  const {id} = req.params;
+  blockUserHelper(id)
+    .then((data) => {
+      return res.status(200).json({ data: data, message: 'User Blocked' });
+    })
+    .catch((err) => {
+      return res.status(500).json({ message: 'Internal Server Error',err });
+    });
+};
+const unblockUser = (req,res) => {
+  const {id} = req.params;
+  unblockUserHelper(id)
+    .then((data) => {
+      return res.status(200).json({ data: data, message: 'User Blocked' });
+    })
+    .catch((err) => {
+      return res.status(500).json({ message: 'Internal Server Error',err });
+    });
+};
 export {
   verifyAdmin,
   adminLogin,
@@ -169,4 +190,6 @@ export {
   generateAccessToken,
   usersList,
   fetchUser,
+  unblockUser,
+  blockUser
 };

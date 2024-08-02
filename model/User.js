@@ -13,6 +13,11 @@ const userSchema = new Schema({
     required: true,
     unique: true,
   },
+  isBlocked:{
+    type:Boolean,
+    default:false
+
+  },
   password: {
     type: String,
     required: true,
