@@ -24,6 +24,8 @@ import {
   userCreateComment,
   fetchPostsHelper,
   deletePostHelper,
+  getFollowersHelper,
+  getFollowingsHelper,
 } from '../helper/user.js';
 import { User } from '../model/User.js';
 import { deleteImageCloudinary } from '../services/deleteImageCloudinary.js';
@@ -188,9 +190,9 @@ const loginWithGoogle = async (req, res) => {
         const { accessToken, refreshToken } = await generateUserToken(response);
 
         res.cookie('accessToken', accessToken, {
-          maxAge: 4 * 60 * 1000, // 4 minutes
+          maxAge: 4 * 60 * 1000,
           httpOnly: true,
-          secure: process.env.NODE_ENV === 'production', // Set secure flag only in production
+          secure: process.env.NODE_ENV === 'production',
           sameSite: 'Strict',
         });
         res.cookie('refreshToken', refreshToken, {
@@ -200,7 +202,6 @@ const loginWithGoogle = async (req, res) => {
           sameSite: 'Strict',
         });
 
-        // Extract user data
         const { userName, _id, profilePicture, email, bio, following, followers } = response;
 
         // Respond with tokens and user data
@@ -531,6 +532,25 @@ const deletePost = (req,res) => {
     });
 
 };
+const fetchConnections = async (req, res) => {
+  const { id } = req.params;
+  const { type, offset } = req.query; // Expecting type to be 'followers' or 'followings'
+
+  try {
+    let connections;
+    if (type === 'followers') {
+      connections = await getFollowersHelper(id, offset);
+    } else if (type === 'followings') {
+      connections = await getFollowingsHelper(id, offset);
+    } else {
+      return res.status(400).json({ message: 'Invalid type parameter. Use \'followers\' or \'followings\'.' });
+    }
+
+    return res.status(200).json(connections);
+  } catch (error) {
+    return res.status(500).json({ message: 'An error occurred while fetching connections.', error });
+  }
+};
 
 export {
   userSignUp,
@@ -557,4 +577,5 @@ export {
   commentPost,
   fetchPosts,
   deletePost,
+  fetchConnections,
 };

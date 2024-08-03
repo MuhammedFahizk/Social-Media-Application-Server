@@ -12,6 +12,7 @@ cloudinary.config({
 import argon2 from 'argon2';
 import Posts from '../model/Posts.js';
 import { deleteImageCloudinary } from '../services/deleteImageCloudinary.js';
+import { connections } from 'mongoose';
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const userValidateEmailHelper = async (user) => {
   try {
@@ -103,7 +104,7 @@ const userLoginHelper = async (user) => {
       })
       .catch((err) => {
         console.error('Database query failed', err); // Log the actual error for debugging
-        reject(new Error('Database query failed: ' + err.message)); // Pass the actual error message
+        reject(new Error(`Database query failed: ${  err.message}`)); // Pass the actual error message
       });
   });
 };
@@ -147,7 +148,7 @@ const googleLoginUser = async (user) => {
         }
       })
       .catch((error) => {
-        reject(new Error('Database query failed: ' + error.message));
+        reject(new Error(`Database query failed: ${  error.message}`));
       });
   });
 };
@@ -182,7 +183,7 @@ const findSuggestion = async (id) => {
     const followingIds = following.map(follow => follow._id);
   
     // Find users followed by the users in the `following` list, excluding current user and already followed users
-    const users = await User.aggregate([
+    let users = await User.aggregate([
       {
         $match: {
           _id: { $ne: id }
@@ -216,10 +217,31 @@ const findSuggestion = async (id) => {
           _id: 0,
           suggestedUsers: 1
         }
+      },
+      {
+        $limit: 10
       }
     ]);
 
-    return { users: users.length > 0 ? users[0].suggestedUsers : [], user };
+    users = users.length > 0 ? users[0].suggestedUsers : [];
+
+    // If fewer than 10 users are suggested, fill up with random users
+    if (users.length < 10) {
+      const additionalUsers = await User.aggregate([
+        {
+          $match: {
+            _id: { $ne: id },
+            _id: { $nin: followingIds.concat(users.map(u => u._id)) }
+          }
+        },
+        {
+          $sample: { size: 10 - users.length }
+        }
+      ]);
+      users = users.concat(additionalUsers);
+    }
+
+    return { users, user };
   } catch (error) {
     console.error('Error finding user suggestions:', error);
     throw error;
@@ -426,8 +448,6 @@ const searchHelper = async (id, value, item, offset) => {
     }
   });
 };
-
-
 
 
 const uploadProfileHelper = async (id, file) => {
@@ -735,6 +755,51 @@ const deletePostHelper = async (id, _id) => {
   }
 };
 
+const getFollowersHelper = async (userId, offset = 0) => {
+  try {
+    const user = await User.findById(userId).populate({
+      path: 'followers',
+      options: {
+        skip: Number(offset),
+        limit: 10,
+        select: 'userName profilePicture'
+      }
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+    const followers = await User.findById(userId).populate({
+      path: 'followers',
+    });
+    return { connections: user.followers, totalCount: followers.followers.length };
+  } catch (error) {
+    throw new Error(error.message);
+  }
+};
+
+const getFollowingsHelper = async (userId, offset = 0) => {
+  try {
+    const user = await User.findById(userId).populate({
+      path: 'following',
+      options: {
+        skip: Number(offset),
+        limit: 10,
+        select: 'userName profilePicture'
+      }
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+    const following = await User.findById(userId).populate({
+      path: 'following',
+    });
+    return { connections: user.following, totalCount: following.following.length };
+  } catch (error) {
+    throw new Error(error.message);
+  }
+};
 
 export {
   userLoginHelper,
@@ -757,5 +822,7 @@ export {
   likePostHelper,
   userCreateComment,
   fetchPostsHelper,
-  deletePostHelper
+  deletePostHelper,
+  getFollowersHelper,
+  getFollowingsHelper,
 };
