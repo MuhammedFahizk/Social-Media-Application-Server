@@ -3,7 +3,7 @@ import { Otp, User } from '../model/User.js';
 import { OAuth2Client } from 'google-auth-library';
 import sendOtpUserOtp from '../services/nodeMailer.js';
 import cloudinary from 'cloudinary';
-
+import { ObjectId } from 'mongodb';
 cloudinary.config({
   cloud_name: process.env.CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -12,7 +12,7 @@ cloudinary.config({
 import argon2 from 'argon2';
 import Posts from '../model/Posts.js';
 import { deleteImageCloudinary } from '../services/deleteImageCloudinary.js';
-import { connections } from 'mongoose';
+import { connections, Types } from 'mongoose';
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const userValidateEmailHelper = async (user) => {
   try {
@@ -755,10 +755,14 @@ const deletePostHelper = async (id, _id) => {
   }
 };
 
-const getFollowersHelper = async (userId, offset = 0) => {
+const getFollowersHelper = async (userId, offset = 0,query ) => {
   try {
     const user = await User.findById(userId).populate({
+
       path: 'followers',
+      match: query.trim() === '' ? {} : {
+        userName: { $regex: query, $options: 'i' }
+      },
       options: {
         skip: Number(offset),
         limit: 10,
@@ -769,19 +773,40 @@ const getFollowersHelper = async (userId, offset = 0) => {
     if (!user) {
       throw new Error('User not found');
     }
-    const followers = await User.findById(userId).populate({
-      path: 'followers',
-    });
-    return { connections: user.followers, totalCount: followers.followers.length };
+    const totalCount = await User.aggregate([
+      { $match: { _id: new ObjectId(userId) } },
+      { $unwind: '$followers' },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'followers',
+          foreignField: '_id',
+          as: 'followersDetails'
+        }
+      },
+      { $unwind: '$followersDetails' },
+      {
+        $match: query.trim() === '' ? {} : {
+          'followersDetails.userName': { $regex: query, $options: 'i' }
+        }
+      },
+      { $count: 'totalCount' }
+    ]).then(result => result.length > 0 ? result[0].totalCount : 0);
+
+    return { connections: user.followers, totalCount };
   } catch (error) {
     throw new Error(error.message);
   }
 };
 
-const getFollowingsHelper = async (userId, offset = 0) => {
+const getFollowingsHelper = async (userId, offset = 0, query) => {
   try {
     const user = await User.findById(userId).populate({
+
       path: 'following',
+      match: query.trim() === '' ? {} : {
+        userName: { $regex: query, $options: 'i' }
+      },
       options: {
         skip: Number(offset),
         limit: 10,
@@ -792,11 +817,29 @@ const getFollowingsHelper = async (userId, offset = 0) => {
     if (!user) {
       throw new Error('User not found');
     }
-    const following = await User.findById(userId).populate({
-      path: 'following',
-    });
-    return { connections: user.following, totalCount: following.following.length };
+    const totalCount = await User.aggregate([
+      { $match: { _id: new ObjectId(userId) } },
+      { $unwind: '$following' },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'following',
+          foreignField: '_id',
+          as: 'followingDetails'
+        }
+      },
+      { $unwind: '$followingDetails' },
+      {
+        $match: query.trim() === '' ? {} : {
+          'followingDetails.userName': { $regex: query, $options: 'i' }
+        }
+      },
+      { $count: 'totalCount' }
+    ]).then(result => result.length > 0 ? result[0].totalCount : 0);
+
+    return { connections: user.following, totalCount};
   } catch (error) {
+    console.log(error);
     throw new Error(error.message);
   }
 };

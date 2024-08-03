@@ -534,20 +534,44 @@ const deletePost = (req,res) => {
 };
 const fetchConnections = async (req, res) => {
   const { id } = req.params;
-  const { type, offset } = req.query; // Expecting type to be 'followers' or 'followings'
-
+  const { type, offset, query } = req.query; // Expecting type to be 'followers' or 'followings'
+  console.log(query);
   try {
     let connections;
     if (type === 'followers') {
-      connections = await getFollowersHelper(id, offset);
+      connections = await getFollowersHelper(id, offset, query || '');
     } else if (type === 'followings') {
-      connections = await getFollowingsHelper(id, offset);
+      connections = await getFollowingsHelper(id, offset, query || '');
     } else {
       return res.status(400).json({ message: 'Invalid type parameter. Use \'followers\' or \'followings\'.' });
     }
 
     return res.status(200).json(connections);
   } catch (error) {
+    console.log(error);
+    return res.status(500).json({ message: 'An error occurred while fetching connections.', error });
+  }
+};
+
+const searchConnections = async (req, res) => {
+  const { id } = req.params;
+  const { type, query } = req.query; // Expecting type to be 'followers' or 'followings'
+  console.log(query);
+  const offset = 0
+  try {
+    let connections;
+    if (type === 'followers') {
+      connections = await getFollowersHelper(id, offset, query);
+    } else if (type === 'followings') {
+      connections = await getFollowingsHelper(id, offset, query);
+    } else {
+      return res.status(400).json({ message: 'Invalid type parameter. Use \'followers\' or \'followings\'.' });
+    }
+    console.log(connections);
+    return res.status(200).json(connections);
+  } catch (error) {
+    console.log(error);
+
     return res.status(500).json({ message: 'An error occurred while fetching connections.', error });
   }
 };
@@ -578,4 +602,5 @@ export {
   fetchPosts,
   deletePost,
   fetchConnections,
+  searchConnections,
 };
