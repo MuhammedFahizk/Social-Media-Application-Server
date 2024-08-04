@@ -26,6 +26,7 @@ import {
   deletePostHelper,
   getFollowersHelper,
   getFollowingsHelper,
+  deleteCommentHelper,
 } from '../helper/user.js';
 import { User } from '../model/User.js';
 import { deleteImageCloudinary } from '../services/deleteImageCloudinary.js';
@@ -498,6 +499,7 @@ const commentPost = async (req, res) => {
 
     // Call the helper function to add the comment
     const result = await userCreateComment(id, _id, comment,);
+    console.log(result);
 
     // Send a success response if the comment was added
     res.status(200).json({ message: 'Comment added successfully', result });
@@ -552,29 +554,27 @@ const fetchConnections = async (req, res) => {
     return res.status(500).json({ message: 'An error occurred while fetching connections.', error });
   }
 };
-
-const searchConnections = async (req, res) => {
-  const { id } = req.params;
-  const { type, query } = req.query; // Expecting type to be 'followers' or 'followings'
-  console.log(query);
-  const offset = 0
+const deleteComment = (req, res) => {
   try {
-    let connections;
-    if (type === 'followers') {
-      connections = await getFollowersHelper(id, offset, query);
-    } else if (type === 'followings') {
-      connections = await getFollowingsHelper(id, offset, query);
-    } else {
-      return res.status(400).json({ message: 'Invalid type parameter. Use \'followers\' or \'followings\'.' });
-    }
-    console.log(connections);
-    return res.status(200).json(connections);
-  } catch (error) {
-    console.log(error);
-
-    return res.status(500).json({ message: 'An error occurred while fetching connections.', error });
+    const {commentId, postId} = req.query;
+    const { _id } = req.user;
+    console.log('commentId', commentId);
+        console.log('postId', postId);
+    deleteCommentHelper(commentId,postId,_id)
+      .then((result) => {
+        res.status(200).json({ message: 'Comment deleted successfully' , result});
+      })
+      .catch((error) => {
+        console.error('Error deleting comment:', error);
+        res.status(500).json({ message: 'Internal server error', error: error.message });
+      });
+  }
+  catch (error) {
+    console.error('Error deleting comment:', error);
+    res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 };
+
 
 export {
   userSignUp,
@@ -602,5 +602,5 @@ export {
   fetchPosts,
   deletePost,
   fetchConnections,
-  searchConnections,
+  deleteComment,
 };

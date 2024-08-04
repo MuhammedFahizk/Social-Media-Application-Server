@@ -574,16 +574,21 @@ const userCreateComment = async (postId, userId, commentContent) => {
   try {
 
     // Update the post by pushing a new comment object into the comments array
-    const result = await Posts.updateOne(
+    const result = await Posts.findOneAndUpdate(
       { _id: postId },
-      { $push: { comments: { author: userId, content: commentContent } } }
-    );
+      { $push: { comments: { author: userId, content: commentContent } } },
+      { new: true}
+    )
+      .populate('author')
+      .populate({
+        path: 'comments.author',
+        select: 'userName profilePicture'
+      });
 
     // Check if a document matched the query
     if (result.matchedCount === 0) {
       throw new Error('No matching post found to add the comment');
     }
-
     return result;
   } catch (error) {
     // Handle errors and reject the promise with the error message
@@ -755,7 +760,7 @@ const deletePostHelper = async (id, _id) => {
   }
 };
 
-const getFollowersHelper = async (userId, offset = 0,query ) => {
+const getFollowersHelper = async (userId, offset = 0,query) => {
   try {
     const user = await User.findById(userId).populate({
 
@@ -791,7 +796,7 @@ const getFollowersHelper = async (userId, offset = 0,query ) => {
         }
       },
       { $count: 'totalCount' }
-    ]).then(result => result.length > 0 ? result[0].totalCount : 0);
+    ]).then(result => (result.length > 0 ? result[0].totalCount : 0));
 
     return { connections: user.followers, totalCount };
   } catch (error) {
@@ -835,13 +840,37 @@ const getFollowingsHelper = async (userId, offset = 0, query) => {
         }
       },
       { $count: 'totalCount' }
-    ]).then(result => result.length > 0 ? result[0].totalCount : 0);
+    ]).then(result => (result.length > 0 ? result[0].totalCount : 0));
 
     return { connections: user.following, totalCount};
   } catch (error) {
     console.log(error);
     throw new Error(error.message);
   }
+};
+
+const deleteCommentHelper = (commentId, postId, _id) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const updatedPost = await Posts.findOneAndUpdate(
+        { _id: postId },
+        { $pull: { comments: { _id: commentId } } },
+        { new: true }
+      ).populate('author')
+        .populate({
+          path: 'comments.author',
+          select: 'userName profilePicture'
+        });
+
+      if (!updatedPost) {
+        return reject(new Error('Post not found'));
+      }
+
+      resolve(updatedPost);
+    } catch (error) {
+      reject(error);
+    }
+  });
 };
 
 export {
@@ -868,4 +897,5 @@ export {
   deletePostHelper,
   getFollowersHelper,
   getFollowingsHelper,
+  deleteCommentHelper,
 };

@@ -11,7 +11,9 @@ const commentSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-});
+},
+{timestamps: true}
+);
 
 // Define the schema for posts
 const postSchema = new mongoose.Schema(
