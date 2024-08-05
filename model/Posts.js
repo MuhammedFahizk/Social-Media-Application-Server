@@ -6,6 +6,7 @@ const commentSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true,
+    index: true
   },
   content: {
     type: String,
@@ -22,6 +23,7 @@ const postSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: true,
+      index: true,
     },
     content: { 
       type: String, 
@@ -36,10 +38,10 @@ const postSchema = new mongoose.Schema(
     body: {
       type: String,
     },
-    hashTag: {
+    hashTags: [{
       type: String,
-
-    },
+      index: true,
+    }],
     likes: [
       { 
         type: mongoose.Schema.Types.ObjectId, 

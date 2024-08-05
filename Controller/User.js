@@ -376,6 +376,7 @@ const createPost =  async(req, res) => {
     const {content} = req.params;
     const { _id } = req.user;
     const  body   = req.body;
+    console.log(body);
     createPostHelper(body, content, _id)
       .then((response) => {
         return res.status(200).json({ message: 'post success', response });
@@ -409,8 +410,6 @@ const createStory =  async(req, res) => {
 };
 const uploadImageCloud = (req, res) => {
   try {
-    const { image } = req.body;
-    console.log(req.file);
     uploadImageCloudinary(req.file)
       .then((response) => {
         return res.status(200).json({ message: 'upload success', response });

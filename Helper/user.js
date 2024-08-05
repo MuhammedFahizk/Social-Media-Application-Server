@@ -374,68 +374,28 @@ const searchHelper = async (id, value, item, offset) => {
           break;
 
         case 'blogs':
-          queryResult = await Posts.find({ title: new RegExp(value, 'i') })
+          queryResult = await Posts.find({ 
+            $or:[
+              { title: { $regex: value, $options: 'i' } },
+              {hashTags: { $regex: value, $options: 'i'}}
+            ]
+          })
             .skip(offset)
             .limit(10)
             .populate('author');
           break;
 
         case 'images':
-          queryResult = await Posts.aggregate([
-            {
-              $addFields: {
-                tags: { $split: ['$hashTag', '#'] }
-              }
-            },
-            {
-              $match: {
-                tags: { $elemMatch: { $regex: value, $options: 'i' } }
-              }
-            },
-            {
-              $lookup: {
-                from: 'users',
-                localField: 'author',
-                foreignField: '_id',
-                as: 'author'
-              }
-            },
-            {
-              $unwind: '$author'
-            },
-            {
-              $lookup: {
-                from: 'users',
-                localField: 'comments.author',
-                foreignField: '_id',
-                as: 'commentAuthors'
-              }
-            },
-            {
-              $addFields: {
-                comments: {
-                  $map: {
-                    input: '$comments',
-                    as: 'comment',
-                    in: {
-                      $mergeObjects: [
-                        '$$comment',
-                        {
-                          author: {
-                            $arrayElemAt: [
-                              '$commentAuthors',
-                              { $indexOfArray: ['$commentAuthors._id', '$$comment.author'] }
-                            ]
-                          }
-                        }
-                      ]
-                    }
-                  }
-                }
-              }
-            },
-            { $limit: 10 }
-          ]);
+          queryResult = await Posts.find({
+            hashTags: { $elemMatch: { $regex: value, $options: 'i' } }
+          })
+            .skip(offset)
+            .limit(10)
+            .populate('author')
+            .populate({
+              path: 'comments.author',
+              select: 'userName profilePicture'
+            });
           break;
 
         default:
@@ -465,14 +425,21 @@ const uploadProfileHelper = async (id, file) => {
     }
   });
 };
-const  createPostHelper = async (data, content, id) => {
+
+const createPostHelper = async (data, content, id) => {
   try {
+    const hashTags = data.hashTag.match(/#[\w]+/g) || [];
+    console.log(hashTags);
+
+    // Create a new post object
     const post = new Posts({
       author: id,
       content,
+      hashTags, // Assign the extracted hashtags to the hashTags field
       ...data
     });
 
+    // Save the post to the database
     const savedPost = await post.save();
     return savedPost;
   } catch (error) {
@@ -511,10 +478,8 @@ const fetchPostHelper = async (id) => {
     const post = await Posts.findById(id).populate('author')
       .populate({
         path: 'comments.author',
-        select: 'userName', 
-        select: 'profilePicture'
-        // Adjust fields as needed
-      }); 
+        select: 'userName profilePicture'
+      });
     if (post) {
       post.comments.sort((a, b) => b.timestamps - a.timestamps);
     }
