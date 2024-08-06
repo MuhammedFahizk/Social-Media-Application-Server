@@ -841,8 +841,16 @@ const deleteCommentHelper = (commentId, postId, _id) => {
 const getFreshStoriesHelper = async () => {
   try {
     const users = await User.aggregate([
-      {$unwind: '$story'},
-      {$sort: { 'story.createdAt': -1}},
+      { $unwind: '$story' },
+      { $sort: { 'story.createdAt': -1 } },
+      {
+        $lookup: {
+          from: 'users', // The collection name in MongoDB
+          localField: 'story.views.userId',
+          foreignField: '_id',
+          as: 'story.views.userDetails'
+        }
+      },
       {
         $group: {
           _id: '$_id',
@@ -855,23 +863,54 @@ const getFreshStoriesHelper = async () => {
           followers: { $first: '$followers' },
           following: { $first: '$following' },
           token: { $first: '$token' },
-          story: { $push: '$story' },
+          story: { $push: '$story'},
         }
       },
       { $sort: { 'story.createdAt': -1 } }
     ]);
-    
+    // Filter for fresh stories
     const freshStoryUsers = users.filter(user => {
       const twentyFourHoursInMilliseconds = 1000 * 60 * 60 * 24;
-      return user.story.some(story => story.createdAt.getTime() > Date.now() - twentyFourHoursInMilliseconds);
+      user.story = user.story.filter(story => story.createdAt.getTime() > Date.now() - twentyFourHoursInMilliseconds);
+      return user.story.length > 0; // Only keep users with fresh stories
+
 
     });
-   
 
     return freshStoryUsers;
   } catch (error) {
     console.error('Error fetching fresh stories:', error);
     throw error;
+  }
+};
+
+
+const incrementViewerCountHelper = async (userId, storyId, authorId) => {
+  try {
+    // Find the author by ID and populate the story field
+    const user = await User.findById(authorId).populate('story.views.userId');
+    if (!user) {
+      return { error: 'Author not found' };
+    }
+
+    // Find the specific story within the user's story array
+    const story = user.story.id(storyId);
+    if (!story) {
+      return { error: 'Story not found' };
+    }
+
+    // Check if the user has already viewed the story
+    if (!story.views.some(view => view.userId.equals(userId))) {
+      // Add the user to the list of viewers
+      story.views.push({ userId, viewedAt: new Date() });
+      await user.save(); // Save the updated user document
+    }
+
+    // Return the count of viewers for the story
+    return {  story };
+  } catch (error) {
+    console.error('Error in incrementViewerCountHelper:', error);
+    return { error: 'Server error' };
   }
 };
 
@@ -901,4 +940,5 @@ export {
   getFollowingsHelper,
   deleteCommentHelper,
   getFreshStoriesHelper,
+  incrementViewerCountHelper
 };

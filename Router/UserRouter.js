@@ -25,7 +25,8 @@ import {
   deletePost,
   fetchConnections,
   deleteComment,
-  getFreshStories
+  getFreshStories,
+  incrementViewerCount
 } from '../controller/User.js';
 
 import express from 'express';
@@ -61,4 +62,5 @@ router.delete('/deletePost/:id',userProtectedRoutes, deletePost);
 router.get('/connections/:id', userProtectedRoutes, fetchConnections);
 router.delete('/deleteComment',userProtectedRoutes, deleteComment);
 router.get('/getFreshStories/',userProtectedRoutes, getFreshStories)
+router.post('/incrementViewerCount', userProtectedRoutes, incrementViewerCount);
 export default router;

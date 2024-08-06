@@ -28,6 +28,7 @@ import {
   getFollowingsHelper,
   deleteCommentHelper,
   getFreshStoriesHelper,
+  incrementViewerCountHelper,
 } from '../helper/user.js';
 import { User } from '../model/User.js';
 import { deleteImageCloudinary } from '../services/deleteImageCloudinary.js';
@@ -587,6 +588,21 @@ const getFreshStories = (req,res) => {
   
 };
 
+const incrementViewerCount = async (req, res) => {
+  const {_id: userId}  = req.user;
+  const { storyId, authorId }  = req.body;
+  try {
+    const response = await incrementViewerCountHelper(userId, storyId, authorId);
+    if (response.error) {
+      return res.status(400).send(response.error);
+    }
+    res.status(200).json({  response });
+  } catch (error) {
+    console.error('Failed to increment viewer count:', error);
+    res.status(500).send('Server error');
+  }
+
+};
 export {
   userSignUp,
   verifyUser,
@@ -615,4 +631,5 @@ export {
   fetchConnections,
   deleteComment,
   getFreshStories,
+  incrementViewerCount,
 };
