@@ -27,6 +27,7 @@ import {
   getFollowersHelper,
   getFollowingsHelper,
   deleteCommentHelper,
+  getFreshStoriesHelper,
 } from '../helper/user.js';
 import { User } from '../model/User.js';
 import { deleteImageCloudinary } from '../services/deleteImageCloudinary.js';
@@ -558,7 +559,7 @@ const deleteComment = (req, res) => {
     const {commentId, postId} = req.query;
     const { _id } = req.user;
     console.log('commentId', commentId);
-        console.log('postId', postId);
+    console.log('postId', postId);
     deleteCommentHelper(commentId,postId,_id)
       .then((result) => {
         res.status(200).json({ message: 'Comment deleted successfully' , result});
@@ -573,7 +574,18 @@ const deleteComment = (req, res) => {
     res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 };
+const getFreshStories = (req,res) => {
+  getFreshStoriesHelper()
+    .then(user => {
+      res.status(200).json({ message: 'Comment deleted successfully' , user});
+    })
+    .catch((error) => {
+      console.error('Error fetching story comment:', error);
+      res.status(500).json({ message: 'Internal server error', error: error.message });
+    });
 
+  
+};
 
 export {
   userSignUp,
@@ -602,4 +614,5 @@ export {
   deletePost,
   fetchConnections,
   deleteComment,
+  getFreshStories,
 };

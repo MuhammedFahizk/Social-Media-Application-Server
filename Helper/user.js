@@ -838,6 +838,43 @@ const deleteCommentHelper = (commentId, postId, _id) => {
   });
 };
 
+const getFreshStoriesHelper = async () => {
+  try {
+    const users = await User.aggregate([
+      {$unwind: '$story'},
+      {$sort: { 'story.createdAt': -1}},
+      {
+        $group: {
+          _id: '$_id',
+          userName: { $first: '$userName' },
+          email: { $first: '$email' },
+          isBlocked: { $first: '$isBlocked' },
+          password: { $first: '$password' },
+          bio: { $first: '$bio' },
+          profilePicture: { $first: '$profilePicture' },
+          followers: { $first: '$followers' },
+          following: { $first: '$following' },
+          token: { $first: '$token' },
+          story: { $push: '$story' },
+        }
+      },
+      { $sort: { 'story.createdAt': -1 } }
+    ]);
+    
+    const freshStoryUsers = users.filter(user => {
+      const twentyFourHoursInMilliseconds = 1000 * 60 * 60 * 24;
+      return user.story.some(story => story.createdAt.getTime() > Date.now() - twentyFourHoursInMilliseconds);
+
+    });
+   
+
+    return freshStoryUsers;
+  } catch (error) {
+    console.error('Error fetching fresh stories:', error);
+    throw error;
+  }
+};
+
 export {
   userLoginHelper,
   logoutHelper,
@@ -863,4 +900,5 @@ export {
   getFollowersHelper,
   getFollowingsHelper,
   deleteCommentHelper,
+  getFreshStoriesHelper,
 };

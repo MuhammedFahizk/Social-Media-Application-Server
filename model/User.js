@@ -53,7 +53,7 @@ const otpSchema = new Schema({
   createdAt: { type: Date, default: Date.now, expires: 300 },
 });
 
-userSchema.method.hashFreshStory = function() {
+userSchema.methods.hashFreshStory = async function() {
   const twentyFourHoursInMilliseconds = 1000 * 60 * 60 * 24;
   return this.story.some(story => story.createdAt.getTime() > Date.now() - twentyFourHoursInMilliseconds);
 };
