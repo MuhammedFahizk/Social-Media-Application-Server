@@ -2,6 +2,7 @@ import { verify } from 'argon2';
 import Admin from '../model/AdminModel.js';
 import { OAuth2Client } from 'google-auth-library';
 import { User } from '../model/User.js';
+import Posts from '../model/Posts.js';
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const adminLoginHelper = (loginData) =>
   new Promise((resolve, reject) => {
@@ -115,6 +116,58 @@ const unblockUserHelper = (id) => {
   });
 };
 
+const fetchPostsHelper = (value, search) => {
+  return new Promise((resolve, reject) => {
+    console.log(search);
+    const query = { content: value };
+
+    if (search) {
+      if (value === 'blog') {
+        query.$or = [
+          { title: new RegExp(search, 'i') },
+          { hashTags: { $elemMatch: { $regex: search, $options: 'i' } } }
+        ];
+      } else if (value === 'image') {
+        query.hashTags = { $elemMatch: { $regex: search, $options: 'i' } };
+      }
+    }
+
+    Posts.find(query)
+      .populate('author')
+      .populate({
+        path: 'comments',
+        populate: {
+          path: 'author',
+          model: 'User'
+        }
+      })
+      .sort({ createdAt: -1})
+      .then((posts) => {
+        resolve(posts);
+      })
+      .catch((error) => {
+        reject(error);
+      });
+  });
+};
+const fetchPostHelper = async (id) => {
+  try {
+    // Ensure this line is correctly implemented based on your database setup
+    const post = await Posts.findById(id).populate('author')
+      .populate({
+        path: 'comments.author',
+        select: 'userName profilePicture'
+      });
+    if (post) {
+      post.comments.sort((a, b) => b.timestamps - a.timestamps);
+    }
+    return post;
+  } catch (error) {
+    console.error(error); // Log the error for debugging purposes
+    throw error; // Rethrow the error to be caught by the calling function
+  }
+};
+
 export {
   adminLoginHelper,
   fetchUserHelper,
@@ -123,4 +176,6 @@ export {
   usersHelper,
   blockUserHelper,
   unblockUserHelper,
+  fetchPostsHelper,
+  fetchPostHelper
 };

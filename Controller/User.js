@@ -29,6 +29,7 @@ import {
   deleteCommentHelper,
   getFreshStoriesHelper,
   incrementViewerCountHelper,
+  fetchProfileStoresHelper,
 } from '../helper/user.js';
 import { User } from '../model/User.js';
 import { deleteImageCloudinary } from '../services/deleteImageCloudinary.js';
@@ -603,6 +604,15 @@ const incrementViewerCount = async (req, res) => {
   }
 
 };
+const fetchProfileStores = async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const user = await fetchProfileStoresHelper(userId);
+    res.status(200).json(user);
+  } catch (error) {
+    res.status(500).json({ error: 'An error occurred while fetching the profile stores.' });
+  }
+};
 export {
   userSignUp,
   verifyUser,
@@ -632,4 +642,5 @@ export {
   deleteComment,
   getFreshStories,
   incrementViewerCount,
+  fetchProfileStores,
 };

@@ -1,7 +1,8 @@
-import { adminGoogleLoginHelper, adminLoginHelper, googleLoginAdmin, usersHelper,fetchUserHelper, unblockUserHelper, blockUserHelper } from '../helper/admin.js';
+import { adminGoogleLoginHelper, adminLoginHelper, googleLoginAdmin, usersHelper,fetchUserHelper, unblockUserHelper, blockUserHelper, fetchPostsHelper, fetchPostHelper } from '../helper/admin.js';
 import  {generateAdminAccessToken, generateToken}  from '../Utils/admin/generateTokens.js';
 import { verifyAdminRefreshToken  } from '../Utils/admin/verifyAdminRefreshToken.js';
 import Admin from '../model/AdminModel.js';
+import { response } from 'express';
 // Define your controller functions
 
 const adminLogin = async (req, res) => {
@@ -183,6 +184,32 @@ const unblockUser = (req,res) => {
       return res.status(500).json({ message: 'Internal Server Error',err });
     });
 };
+const fetchPosts = (req, res) => {
+  const { value } = req.params;
+  const { search } = req.query
+  console.log(req.query, req.body, req.params);
+  fetchPostsHelper(value, search)
+    .then((response) => {
+      res.status(200).json(response);
+    })
+    .catch((error) => {
+      console.log(error);
+      res.status(500).json({ error: 'Failed to fetch posts' });
+    });
+};
+const fetchPost = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const post = await fetchPostHelper(postId);
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+    res.status(200).json(post);
+  } catch (error) {
+    console.error(error); // Log the error for debugging purposes
+    res.status(500).json({ message: 'An error occurred', error: error.message });
+  }
+};
 export {
   verifyAdmin,
   adminLogin,
@@ -191,5 +218,7 @@ export {
   usersList,
   fetchUser,
   unblockUser,
-  blockUser
+  blockUser,
+  fetchPosts,
+  fetchPost
 };

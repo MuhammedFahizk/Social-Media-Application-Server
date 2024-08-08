@@ -78,6 +78,7 @@ const userSignUpHelper = async (user) => {
       password: hashPassword,
     });
     const savedUser = await newUser.save();
+    await Otp.deleteOne({ email: user.email });
     return savedUser;
   } catch (error) {
     console.error('Error saving user:', error);
@@ -721,7 +722,7 @@ const deletePostHelper = async (id, _id) => {
     await Posts.findByIdAndDelete(id);
     return { success: 'Post deleted successfully' };
   } catch (error) {
-    return { error: 'An error occurred while deleting the post' };
+    return { error: 'An error occurred while deleting the post',error };
   }
 };
 
@@ -914,6 +915,41 @@ const incrementViewerCountHelper = async (userId, storyId, authorId) => {
   }
 };
 
+const fetchProfileStoresHelper = (userId) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const user = await User.aggregate([
+        { $match: { _id: new ObjectId(userId) } },
+        { $unwind: '$story' },
+    
+        {
+          $group: {
+            _id: {
+              $dateToString: { format: '%Y-%m-%d', date: '$story.createdAt' }
+            },
+            story: { $push: '$story' }
+          }
+        },
+         {
+          $project: {
+            _id: 0,
+            date: '$_id',
+            story: 1
+          }
+        },
+        
+        // Sort by date if needed
+        { $sort: { date: -1 } }
+
+        
+      ]);
+      console.log(user);
+      resolve(user);
+    } catch (error) {
+      reject(error);
+    }
+  });
+};
 export {
   userLoginHelper,
   logoutHelper,
@@ -940,5 +976,6 @@ export {
   getFollowingsHelper,
   deleteCommentHelper,
   getFreshStoriesHelper,
-  incrementViewerCountHelper
+  incrementViewerCountHelper,
+  fetchProfileStoresHelper,
 };
