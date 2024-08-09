@@ -27,7 +27,8 @@ import {
   deleteComment,
   getFreshStories,
   incrementViewerCount,
-  fetchProfileStores
+  fetchProfileStores,
+  updatePost
 } from '../controller/User.js';
 
 import express from 'express';
@@ -65,4 +66,6 @@ router.delete('/deleteComment',userProtectedRoutes, deleteComment);
 router.get('/getFreshStories/',userProtectedRoutes, getFreshStories);
 router.post('/incrementViewerCount', userProtectedRoutes, incrementViewerCount);
 router.get('/fetchProfileStores/:userId',userProtectedRoutes, fetchProfileStores);
+
+router.put('/updatePost', userProtectedRoutes,updatePost);
 export default router;

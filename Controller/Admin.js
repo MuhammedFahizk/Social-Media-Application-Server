@@ -2,7 +2,6 @@ import { adminGoogleLoginHelper, adminLoginHelper, googleLoginAdmin, usersHelper
 import  {generateAdminAccessToken, generateToken}  from '../Utils/admin/generateTokens.js';
 import { verifyAdminRefreshToken  } from '../Utils/admin/verifyAdminRefreshToken.js';
 import Admin from '../model/AdminModel.js';
-import { response } from 'express';
 // Define your controller functions
 
 const adminLogin = async (req, res) => {
@@ -186,14 +185,13 @@ const unblockUser = (req,res) => {
 };
 const fetchPosts = (req, res) => {
   const { value } = req.params;
-  const { search } = req.query
-  console.log(req.query, req.body, req.params);
+  const { search } = req.query;
   fetchPostsHelper(value, search)
     .then((response) => {
       res.status(200).json(response);
     })
     .catch((error) => {
-      console.log(error);
+      console.error(error);
       res.status(500).json({ error: 'Failed to fetch posts' });
     });
 };

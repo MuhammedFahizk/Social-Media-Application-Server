@@ -12,7 +12,6 @@ cloudinary.config({
 import argon2 from 'argon2';
 import Posts from '../model/Posts.js';
 import { deleteImageCloudinary } from '../services/deleteImageCloudinary.js';
-import { connections, Types } from 'mongoose';
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const userValidateEmailHelper = async (user) => {
   try {
@@ -430,7 +429,6 @@ const uploadProfileHelper = async (id, file) => {
 const createPostHelper = async (data, content, id) => {
   try {
     const hashTags = data.hashTag.match(/#[\w]+/g) || [];
-    console.log(hashTags);
 
     // Create a new post object
     const post = new Posts({
@@ -444,7 +442,7 @@ const createPostHelper = async (data, content, id) => {
     const savedPost = await post.save();
     return savedPost;
   } catch (error) {
-    console.log(error);
+    console.error(error);
     throw new Error(error.message);
   }
 };
@@ -565,7 +563,6 @@ const userCreateComment = async (postId, userId, commentContent) => {
 const fetchPostsHelper = async (heading, offset, id) => {
   let postItems = [];
   offset = parseInt(offset);
-  console.log('Heading:', heading);
   try {
     const user = await User.findById(id);
     if (!user && heading === 'Friends') throw new Error('User not found');
@@ -810,7 +807,7 @@ const getFollowingsHelper = async (userId, offset = 0, query) => {
 
     return { connections: user.following, totalCount};
   } catch (error) {
-    console.log(error);
+    console.error(error);
     throw new Error(error.message);
   }
 };
@@ -839,10 +836,26 @@ const deleteCommentHelper = (commentId, postId, _id) => {
   });
 };
 
-const getFreshStoriesHelper = async () => {
+const getFreshStoriesHelper = async (userId) => {
   try {
+    // Retrieve the current user's information
+    const currentUser = await User.findById(userId).lean();
+
+    // Define a helper function to filter stories for freshness
+    const filterFreshStories = (stories) => {
+      const twentyFourHoursInMilliseconds = 1000 * 60 * 60 * 24;
+      return stories.filter(story => story.createdAt.getTime() > Date.now() - twentyFourHoursInMilliseconds);
+    };
+
+    // Perform the aggregation to get users who are either followed by the current user or are following the current user
     const users = await User.aggregate([
       { $unwind: '$story' },
+      { $match: {
+        $or: [
+          { 'followers': new ObjectId(currentUser._id) }, // Corrected ObjectId usage
+          { 'following': new ObjectId(currentUser._id) } // Corrected ObjectId usage
+        ]
+      }},
       { $sort: { 'story.createdAt': -1 } },
       {
         $lookup: {
@@ -869,14 +882,17 @@ const getFreshStoriesHelper = async () => {
       },
       { $sort: { 'story.createdAt': -1 } }
     ]);
-    // Filter for fresh stories
-    const freshStoryUsers = users.filter(user => {
-      const twentyFourHoursInMilliseconds = 1000 * 60 * 60 * 24;
-      user.story = user.story.filter(story => story.createdAt.getTime() > Date.now() - twentyFourHoursInMilliseconds);
-      return user.story.length > 0; // Only keep users with fresh stories
 
+    // Filter for fresh stories and prepend current user's fresh stories
+    const freshStoryUsers = users.map(user => ({
+      ...user,
+      story: filterFreshStories(user.story)
+    }));
 
-    });
+    // Prepend the current user's fresh stories if applicable
+    // if (currentUser.story.length > 0) {
+    //   freshStoryUsers.unshift({ ...currentUser, story: filterFreshStories(currentUser.story) });
+    // }
 
     return freshStoryUsers;
   } catch (error) {
@@ -884,7 +900,6 @@ const getFreshStoriesHelper = async () => {
     throw error;
   }
 };
-
 
 const incrementViewerCountHelper = async (userId, storyId, authorId) => {
   try {
@@ -930,7 +945,7 @@ const fetchProfileStoresHelper = (userId) => {
             story: { $push: '$story' }
           }
         },
-         {
+        {
           $project: {
             _id: 0,
             date: '$_id',
@@ -943,13 +958,42 @@ const fetchProfileStoresHelper = (userId) => {
 
         
       ]);
-      console.log(user);
       resolve(user);
     } catch (error) {
       reject(error);
     }
   });
 };
+
+const updatePostHelper = async (postId, data, _id) => {
+  try {
+    const hashTags = data.hashTag.match(/#[\w]+/g) || [];
+    // Find the existing post by ID
+    const existingPost = await Posts.findById(postId);
+    if (existingPost.author._id !== _id) {
+      return { error: 'You are not the author of this post' };
+    }
+    if (!existingPost) {
+      throw new Error('Post not found');
+    }
+
+    // Update the post fields except for imageUrl
+    existingPost.content = data.content || existingPost.content;
+    existingPost.hashTags = hashTags.length > 0 ? hashTags : existingPost.hashTags;
+    existingPost.title = data.title || existingPost.title;
+    existingPost.body = data.body || existingPost.body;
+    existingPost.likes = data.likes || existingPost.likes;
+    existingPost.comments = data.comments || existingPost.comments;
+
+    // Save the updated post to the database
+    const updatedPost = await existingPost.save();
+    return updatedPost;
+  } catch (error) {
+    console.error(error);
+    throw new Error(error.message);
+  }
+};
+
 export {
   userLoginHelper,
   logoutHelper,
@@ -978,4 +1022,5 @@ export {
   getFreshStoriesHelper,
   incrementViewerCountHelper,
   fetchProfileStoresHelper,
+  updatePostHelper,
 };

@@ -1,4 +1,3 @@
-import { response } from 'express';
 import { generateUserAccessToken } from '../Utils/User/generateUserAccessToken.js';
 import { generateUserToken } from '../Utils/User/generateUserToken.js';
 import { verifyUserRefreshToken } from '../Utils/User/verifyUserRefreshToken.js';
@@ -30,6 +29,7 @@ import {
   getFreshStoriesHelper,
   incrementViewerCountHelper,
   fetchProfileStoresHelper,
+  updatePostHelper,
 } from '../helper/user.js';
 import { User } from '../model/User.js';
 import { deleteImageCloudinary } from '../services/deleteImageCloudinary.js';
@@ -379,7 +379,6 @@ const createPost =  async(req, res) => {
     const {content} = req.params;
     const { _id } = req.user;
     const  body   = req.body;
-    console.log(body);
     createPostHelper(body, content, _id)
       .then((response) => {
         return res.status(200).json({ message: 'post success', response });
@@ -388,7 +387,7 @@ const createPost =  async(req, res) => {
         return res.status(500).json({ message: 'post failed', error });
       });
   } catch (error) { 
-    console.log(error);
+    console.error(error);
     return res.status(500).json({ message: 'internal server error', error }); 
   }
 };
@@ -397,17 +396,15 @@ const createStory =  async(req, res) => {
     const {content} = req.params;
     const { _id } = req.user;
     const  body   = req.body;
-    console.log(req.body);
     createStoryHelper(body, content, _id)
       .then((response) => {
         return res.status(200).json({ message: 'post success', response });
       })
       .catch((error) => {
-        console.log(error);
         return res.status(500).json({ message: 'post failed', error });
       });
   } catch (error) { 
-    console.log(error);
+    console.error(error);
     return res.status(500).json({ message: 'internal server error', error }); 
   }
 };
@@ -435,7 +432,6 @@ const deleteImage = async (req, res) => {
   try {
     
     const result = await deleteImageCloudinary(url);
-    console.log('Result:', result);
     if (result.result === 'ok') {
       res.status(200).json({ message: 'Image deleted successfully' });
     } else {
@@ -471,7 +467,7 @@ const unLikePost = async (req, res) => {
     }
     await unLikePostHelper(id, _id);
 
-    res.status(200).json({ message: 'Post unliked successfully' });
+    res.status(200).json({ message: 'Post un liked successfully' });
   } catch (error) {
     console.error('Error un liking post:', error);
     res.status(500).json({ message: 'Internal server error', error: error.message });
@@ -487,7 +483,7 @@ const likePost = async (req, res) => {
     }
     await likePostHelper(id, _id);
 
-    res.status(200).json({ message: 'Post unliked successfully' });
+    res.status(200).json({ message: 'Post un liked successfully' });
   } catch (error) {
     console.error('Error un liking post:', error);
     res.status(500).json({ message: 'Internal server error', error: error.message });
@@ -501,7 +497,6 @@ const commentPost = async (req, res) => {
 
     // Call the helper function to add the comment
     const result = await userCreateComment(id, _id, comment,);
-    console.log(result);
 
     // Send a success response if the comment was added
     res.status(200).json({ message: 'Comment added successfully', result });
@@ -519,7 +514,7 @@ const fetchPosts = async (req, res) => {
     const response = await fetchPostsHelper(heading, offset, _id);
     res.status(200).json(response);
   } catch (error) {
-    console.log('Error fetching posts:', error);
+    console.error('Error fetching posts:', error);
     res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 };
@@ -539,7 +534,6 @@ const deletePost = (req,res) => {
 const fetchConnections = async (req, res) => {
   const { id } = req.params;
   const { type, offset, query } = req.query; // Expecting type to be 'followers' or 'followings'
-  console.log(query);
   try {
     let connections;
     if (type === 'followers') {
@@ -552,7 +546,7 @@ const fetchConnections = async (req, res) => {
 
     return res.status(200).json(connections);
   } catch (error) {
-    console.log(error);
+    console.error(error);
     return res.status(500).json({ message: 'An error occurred while fetching connections.', error });
   }
 };
@@ -560,8 +554,7 @@ const deleteComment = (req, res) => {
   try {
     const {commentId, postId} = req.query;
     const { _id } = req.user;
-    console.log('commentId', commentId);
-    console.log('postId', postId);
+    
     deleteCommentHelper(commentId,postId,_id)
       .then((result) => {
         res.status(200).json({ message: 'Comment deleted successfully' , result});
@@ -577,7 +570,8 @@ const deleteComment = (req, res) => {
   }
 };
 const getFreshStories = (req,res) => {
-  getFreshStoriesHelper()
+  const {_id} = req.user;
+  getFreshStoriesHelper(_id)
     .then(user => {
       res.status(200).json({ message: 'Comment deleted successfully' , user});
     })
@@ -610,9 +604,27 @@ const fetchProfileStores = async (req, res) => {
     const user = await fetchProfileStoresHelper(userId);
     res.status(200).json(user);
   } catch (error) {
+    console.error('Failed to fetch profile stories:', error);
     res.status(500).json({ error: 'An error occurred while fetching the profile stores.' });
   }
 };
+const updatePost = (req,res) => {
+  try {
+    const { _id } = req.user;
+    const  body   = req.body;
+    updatePostHelper(body.postId, body.data, _id)
+      .then((response) => {
+        return res.status(200).json({ message: 'post success', });
+      })
+      .catch((error) => {
+        return res.status(500).json({ message: 'post failed', error });
+      });
+  } catch (error) { 
+    console.error(error);
+    return res.status(500).json({ message: 'internal server error', error }); 
+  }
+};
+
 export {
   userSignUp,
   verifyUser,
@@ -643,4 +655,5 @@ export {
   getFreshStories,
   incrementViewerCount,
   fetchProfileStores,
+  updatePost,
 };
