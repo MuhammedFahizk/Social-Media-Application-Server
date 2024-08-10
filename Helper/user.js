@@ -2,6 +2,7 @@ import { TOTP } from 'totp-generator';
 import { Otp, User } from '../model/User.js';
 import { OAuth2Client } from 'google-auth-library';
 import sendOtpUserOtp from '../services/nodeMailer.js';
+
 import cloudinary from 'cloudinary';
 import { ObjectId } from 'mongodb';
 cloudinary.config({
@@ -707,17 +708,25 @@ const fetchPostsHelper = async (heading, offset, id) => {
 const deletePostHelper = async (id, _id) => {
   try {
     const post = await Posts.findById(id);
+    console.log(post);
     if (!post) {
-      return { error: 'Post not found' };
+      throw {  error: 'Post not found' };
     }
 
     if (post.author.toString() !== _id) {
-      return { error: 'You are not authorized to delete this post' };
+      throw { error: 'You are not authorized to delete this post' };
     }
 
-    await deleteImageCloudinary(post.imageUrl);
-    await Posts.findByIdAndDelete(id);
-    return { success: 'Post deleted successfully' };
+    // await deleteImageCloudinary(post.imageUrl);
+    await Posts.findByIdAndDelete(id)
+      .then((res) => {
+        console.log(res,'sfdf');
+        return { success: 'Post deleted successfully',res };
+      })
+      .catch((err) => {
+        console.error('Error deleting post:', err);
+        return { error: 'Error deleting post' };
+      });
   } catch (error) {
     return { error: 'An error occurred while deleting the post',error };
   }
@@ -847,15 +856,18 @@ const getFreshStoriesHelper = async (userId) => {
       return stories.filter(story => story.createdAt.getTime() > Date.now() - twentyFourHoursInMilliseconds);
     };
 
-    // Perform the aggregation to get users who are either followed by the current user or are following the current user
-    const users = await User.aggregate([
+    // Perform the aggregation to get users who are either followed by the current user, are following the current user, or the current user themselves
+    let users = await User.aggregate([
       { $unwind: '$story' },
-      { $match: {
-        $or: [
-          { 'followers': new ObjectId(currentUser._id) }, // Corrected ObjectId usage
-          { 'following': new ObjectId(currentUser._id) } // Corrected ObjectId usage
-        ]
-      }},
+      {
+        $match: {
+          $or: [
+            { 'followers': new ObjectId(currentUser._id) },
+            { 'following': new ObjectId(currentUser._id) },
+            { '_id': new ObjectId(currentUser._id) }
+          ]
+        }
+      },
       { $sort: { 'story.createdAt': -1 } },
       {
         $lookup: {
@@ -871,28 +883,20 @@ const getFreshStoriesHelper = async (userId) => {
           userName: { $first: '$userName' },
           email: { $first: '$email' },
           isBlocked: { $first: '$isBlocked' },
-          password: { $first: '$password' },
           bio: { $first: '$bio' },
           profilePicture: { $first: '$profilePicture' },
           followers: { $first: '$followers' },
           following: { $first: '$following' },
-          token: { $first: '$token' },
-          story: { $push: '$story'},
+          story: { $push: '$story' },
         }
-      },
-      { $sort: { 'story.createdAt': -1 } }
+      }
     ]);
 
-    // Filter for fresh stories and prepend current user's fresh stories
+    // Filter for fresh stories and remove users with no fresh stories
     const freshStoryUsers = users.map(user => ({
       ...user,
       story: filterFreshStories(user.story)
-    }));
-
-    // Prepend the current user's fresh stories if applicable
-    // if (currentUser.story.length > 0) {
-    //   freshStoryUsers.unshift({ ...currentUser, story: filterFreshStories(currentUser.story) });
-    // }
+    })).filter(user => user.story.length > 0);
 
     return freshStoryUsers;
   } catch (error) {

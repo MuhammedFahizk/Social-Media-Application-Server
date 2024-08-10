@@ -625,6 +625,21 @@ const updatePost = (req,res) => {
   }
 };
 
+const fetchSuggestions = async(req, res) => {
+  const { _id} = req.user;
+  const { offset } = req.params;
+  console.log(_id);
+  findSuggestion(_id,)
+    .then((response) => {
+      return res.status(200).json(response);
+    })
+    .catch((error) => {
+      console.error('Failed to fetch suggestions:', error);
+      return res.status(500).json({ error: 'An error occurred while fetching the suggestions.'
+      });
+    });
+};
+
 export {
   userSignUp,
   verifyUser,
@@ -656,4 +671,5 @@ export {
   incrementViewerCount,
   fetchProfileStores,
   updatePost,
+  fetchSuggestions
 };

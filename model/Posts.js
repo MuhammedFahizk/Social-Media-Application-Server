@@ -1,19 +1,20 @@
 import mongoose from 'mongoose';
 
 // Define a schema for comments
-const commentSchema = new mongoose.Schema({
-  author: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true,
-    index: true
+const commentSchema = new mongoose.Schema(
+  {
+    author: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+      index: true,
+    },
+    content: {
+      type: String,
+      required: true,
+    },
   },
-  content: {
-    type: String,
-    required: true,
-  },
-},
-{timestamps: true}
+  { timestamps: true }
 );
 
 // Define the schema for posts
@@ -25,12 +26,12 @@ const postSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
-    content: { 
-      type: String, 
-      required: true 
+    content: {
+      type: String,
+      required: true,
     },
-    imageUrl: { 
-      type: String 
+    imageUrl: {
+      type: String,
     },
     title: {
       type: String,
@@ -38,18 +39,25 @@ const postSchema = new mongoose.Schema(
     body: {
       type: String,
     },
-    hashTags: [{
-      type: String,
-      index: true,
-    }],
+    hashTags: [
+      {
+        type: String,
+        index: true,
+      },
+    ],
     likes: [
-      { 
-        type: mongoose.Schema.Types.ObjectId, 
-        ref: 'User' 
-      }
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
     ],
     comments: [commentSchema], // Use the comment schema for comments
-
+    // savedPosts: [
+    //   { type: mongoose.Schema.Types.ObjectId, ref: 'Post',
+    //     default: [],
+        
+    //    },
+    // ],
   },
   { timestamps: true } // Automatically add createdAt and updatedAt fields
 );

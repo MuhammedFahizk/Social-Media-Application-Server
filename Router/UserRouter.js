@@ -28,7 +28,8 @@ import {
   getFreshStories,
   incrementViewerCount,
   fetchProfileStores,
-  updatePost
+  updatePost,
+  fetchSuggestions
 } from '../controller/User.js';
 
 import express from 'express';
@@ -68,4 +69,5 @@ router.post('/incrementViewerCount', userProtectedRoutes, incrementViewerCount);
 router.get('/fetchProfileStores/:userId',userProtectedRoutes, fetchProfileStores);
 
 router.put('/updatePost', userProtectedRoutes,updatePost);
+router.get('/fetchSuggestions/', userProtectedRoutes,fetchSuggestions)
 export default router;
