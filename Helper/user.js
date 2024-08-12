@@ -170,10 +170,9 @@ const logoutHelper = async (refreshToken) => {
   }
 };
 
-const findSuggestion = async (id) => {
+const findSuggestion = async (id,) => {
   try {
     const user = await User.findById(id).populate('following').populate('followers');
-  
     if (!user) {
       // Handle the case where user is not found
       return { users: [], user: null };
@@ -219,6 +218,9 @@ const findSuggestion = async (id) => {
           suggestedUsers: 1
         }
       },
+      // {
+      //   $skip: offset
+      // },
       {
         $limit: 10
       }
@@ -857,7 +859,7 @@ const getFreshStoriesHelper = async (userId) => {
     };
 
     // Perform the aggregation to get users who are either followed by the current user, are following the current user, or the current user themselves
-    let users = await User.aggregate([
+    const users = await User.aggregate([
       { $unwind: '$story' },
       {
         $match: {
@@ -971,33 +973,115 @@ const fetchProfileStoresHelper = (userId) => {
 
 const updatePostHelper = async (postId, data, _id) => {
   try {
-    const hashTags = data.hashTag.match(/#[\w]+/g) || [];
+    // Log the incoming data for debugging
+    console.log('Updating post with data:', data);
+
+    const hashTags = data.hashTag?.match(/#[\w]+/g) || [];
+    
     // Find the existing post by ID
     const existingPost = await Posts.findById(postId);
-    if (existingPost.author._id !== _id) {
-      return { error: 'You are not the author of this post' };
-    }
     if (!existingPost) {
       throw new Error('Post not found');
     }
 
-    // Update the post fields except for imageUrl
-    existingPost.content = data.content || existingPost.content;
+    // Check if the current user is the author of the post
+    if (existingPost.author.toString() !== _id) {
+      return { error: 'You are not the author of this post' };
+    }
+
+    // Update the post fields
+    existingPost.content = data.content !== undefined ? data.content : existingPost.content;
     existingPost.hashTags = hashTags.length > 0 ? hashTags : existingPost.hashTags;
-    existingPost.title = data.title || existingPost.title;
-    existingPost.body = data.body || existingPost.body;
-    existingPost.likes = data.likes || existingPost.likes;
-    existingPost.comments = data.comments || existingPost.comments;
+    existingPost.title = data.title !== undefined ? data.title : existingPost.title;
+    existingPost.body = data.body !== undefined ? data.body : existingPost.body;
+    existingPost.likes = data.likes !== undefined ? data.likes : existingPost.likes;
+    existingPost.comments = data.comments !== undefined ? data.comments : existingPost.comments;
+    existingPost.location = data.location !== undefined ? data.location : existingPost.location;
 
     // Save the updated post to the database
     const updatedPost = await existingPost.save();
+    
     return updatedPost;
   } catch (error) {
-    console.error(error);
+    console.error('Error updating post:', error.message);
     throw new Error(error.message);
   }
 };
 
+const findSuggestionHelper = async (currentUserId, offset = 0) => {
+  try {
+    // Find the user by ID
+    // const user = await User.findById(userId);
+    // const following = user.following || [];
+    // const followingIds = following.map(follow => follow._id);
+
+    // Step 1: Find suggested users based on users followed by those the current user follows
+    
+    const suggestions = await User.aggregate([
+      {
+        $match: { _id: new ObjectId(currentUserId) },
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'following',
+          foreignField: '_id',
+          as: 'followingUsers',
+        },
+      },
+      {
+        $unwind: '$followingUsers',
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'followingUsers.following',
+          foreignField: '_id',
+          as: 'suggestedUsers',
+        },
+      },
+      {
+        $unwind: '$suggestedUsers',
+      },
+      {
+        $project: {
+          suggestedUser: '$suggestedUsers',
+          isFollowing: {
+            $in: ['$suggestedUsers._id', '$following'],
+          },
+        },
+      },
+      {
+        $match: {
+          'suggestedUser._id': { $ne: new ObjectId(currentUserId) },
+          isFollowing: false,
+        },
+      },
+      {
+        $group: {
+          _id: '$suggestedUser._id',
+          userName: { $first: '$suggestedUser.userName' },
+          profilePicture: { $first: '$suggestedUser.profilePicture' },
+          commonFollowCount: { $sum: 1 },
+        },
+      },
+      {
+        $sort: { commonFollowCount: -1 },
+      },
+      {
+        $skip: offset, // Pagination offset
+      },
+      {
+        $limit: 6, // Number of suggestions per page
+      },
+    ]);
+    
+    return suggestions;
+    
+  } catch (error) {
+    throw new Error(`Failed to find user suggestions: ${error.message}`);
+  }
+};
 export {
   userLoginHelper,
   logoutHelper,
@@ -1027,4 +1111,5 @@ export {
   incrementViewerCountHelper,
   fetchProfileStoresHelper,
   updatePostHelper,
+  findSuggestionHelper
 };

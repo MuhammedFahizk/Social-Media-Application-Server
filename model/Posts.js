@@ -39,6 +39,9 @@ const postSchema = new mongoose.Schema(
     body: {
       type: String,
     },
+    location: {
+      type: String,
+    },  
     hashTags: [
       {
         type: String,

@@ -30,6 +30,7 @@ import {
   incrementViewerCountHelper,
   fetchProfileStoresHelper,
   updatePostHelper,
+  findSuggestionHelper,
 } from '../helper/user.js';
 import { User } from '../model/User.js';
 import { deleteImageCloudinary } from '../services/deleteImageCloudinary.js';
@@ -624,12 +625,11 @@ const updatePost = (req,res) => {
     return res.status(500).json({ message: 'internal server error', error }); 
   }
 };
-
 const fetchSuggestions = async(req, res) => {
   const { _id} = req.user;
   const { offset } = req.params;
-  console.log(_id);
-  findSuggestion(_id,)
+  console.log (req.params);
+  findSuggestionHelper(_id,Number(offset))
     .then((response) => {
       return res.status(200).json(response);
     })
