@@ -3,6 +3,7 @@ import Admin from '../model/AdminModel.js';
 import { OAuth2Client } from 'google-auth-library';
 import { User } from '../model/User.js';
 import Posts from '../model/Posts.js';
+import  fetchMonthlyUserData  from '../services/fetchMonthlyUserData.js';
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const adminLoginHelper = (loginData) =>
   new Promise((resolve, reject) => {
@@ -118,14 +119,13 @@ const unblockUserHelper = (id) => {
 
 const fetchPostsHelper = (value, search) => {
   return new Promise((resolve, reject) => {
-    console.log(search);
     const query = { content: value };
 
     if (search) {
       if (value === 'blog') {
         query.$or = [
           { title: new RegExp(search, 'i') },
-          { hashTags: { $elemMatch: { $regex: search, $options: 'i' } } }
+          { hashTags: { $elemMatch: { $regex: search, $options: 'i' } } },
         ];
       } else if (value === 'image') {
         query.hashTags = { $elemMatch: { $regex: search, $options: 'i' } };
@@ -138,10 +138,10 @@ const fetchPostsHelper = (value, search) => {
         path: 'comments',
         populate: {
           path: 'author',
-          model: 'User'
-        }
+          model: 'User',
+        },
       })
-      .sort({ createdAt: -1})
+      .sort({ createdAt: -1 })
       .then((posts) => {
         resolve(posts);
       })
@@ -153,11 +153,10 @@ const fetchPostsHelper = (value, search) => {
 const fetchPostHelper = async (id) => {
   try {
     // Ensure this line is correctly implemented based on your database setup
-    const post = await Posts.findById(id).populate('author')
-      .populate({
-        path: 'comments.author',
-        select: 'userName profilePicture'
-      });
+    const post = await Posts.findById(id).populate('author').populate({
+      path: 'comments.author',
+      select: 'userName profilePicture',
+    });
     if (post) {
       post.comments.sort((a, b) => b.timestamps - a.timestamps);
     }
@@ -168,6 +167,171 @@ const fetchPostHelper = async (id) => {
   }
 };
 
+const fetchDashBoardHelper = async () => {
+  try {
+    // Aggregating user data
+    const userMatrix = await User.aggregate([
+      {
+        $facet: {
+          totalUsers: [{ $count: 'count' }],
+          activeUsers: [
+            {
+              $match: {
+                lastActive: {
+                  $gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
+                },
+              },
+            },
+            { $count: 'count' },
+          ],
+          blockedUser: [
+            {
+              $match: {
+                isBlocked: true,
+              },
+            },
+            { $count: 'count' },
+          ],
+          newUsers: [
+            {
+              $match: {
+                createdAt: {
+                  $gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
+                },
+              },
+            },
+            { $count: 'count' },
+          ],
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          totalUsers: {
+            $ifNull: [{ $arrayElemAt: ['$totalUsers.count', 0] }, 0],
+          },
+          activeUsers: {
+            $ifNull: [{ $arrayElemAt: ['$activeUsers.count', 0] }, 0],
+          },
+          blockedUser: {
+            $ifNull: [{ $arrayElemAt: ['$blockedUser.count', 0] }, 0],
+          },
+          newUsers: {
+            $ifNull: [{ $arrayElemAt: ['$newUsers.count', 0] }, 0],
+          },
+        },
+      },
+    ]);
+
+    // Formatting user result
+    const userResult = {
+      totalUsers: {
+        label: 'Total Users',
+        count: userMatrix[0].totalUsers,
+      },
+      activeUsers: {
+        label: 'Active Users (Last 24h)',
+        count: userMatrix[0].activeUsers,
+      },
+      blockedUsers: {
+        label: 'Blocked Users',
+        count: userMatrix[0].blockedUser,
+      },
+      newUsers: {
+        label: 'New Users (Last 24h)',
+        count: userMatrix[0].newUsers,
+      },
+    };
+
+    // Aggregating post data
+    const postMatrix = await Posts.aggregate([
+      {
+        $facet: {
+          totalPosts: [{ $count: 'count' }],
+          images: [
+            {
+              $match: {
+                content: 'image',
+              },
+            },
+            { $count: 'count' },
+          ],
+          blogs: [
+            {
+              $match: {
+                content: 'blog',
+              },
+            },
+            { $count: 'count' },
+          ],
+          PopularPosts: [
+            {
+              $match: {
+                $expr: {
+                  $gte: [
+                    { $size: '$comments' },
+                    2
+                  ],
+                },
+                $expr: {
+                  $gte: [
+                    { $size: '$likes' },
+                    2
+                  ],
+                },
+              },
+            },
+            { $count: 'count' }, // Ensure counting popular posts
+          ],
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          totalPosts: {
+            $ifNull: [{ $arrayElemAt: ['$totalPosts.count', 0] }, 0],
+          },
+          images: {
+            $ifNull: [{ $arrayElemAt: ['$images.count', 0] }, 0],
+          },
+          blogs: {
+            $ifNull: [{ $arrayElemAt: ['$blogs.count', 0] }, 0],
+          },
+          PopularPosts: {
+            $ifNull: [{ $arrayElemAt: ['$PopularPosts.count', 0] }, 0],
+          },
+        },
+      },
+    ]);
+
+    // Formatting post result
+    const postResult = {
+      totalPosts: {
+        label: 'Total Posts',
+        count: postMatrix[0].totalPosts,
+      },
+      images: {
+        label: 'Posts with Images',
+        count: postMatrix[0].images,
+      },
+      blogs: {
+        label: 'Posts with Blogs',
+        count: postMatrix[0].blogs,
+      },
+      popularPosts: {
+        label: 'Popular Posts',
+        count: postMatrix[0].PopularPosts,
+      },
+    };
+    const fullMonthlyData = await fetchMonthlyUserData();
+    return { userResult, postResult , fullMonthlyData};
+  } catch (error) {
+    console.error(`Error fetching dashboard data: ${error.message}`);
+    throw new Error(`Error fetching dashboard data: ${error.message}`);
+  }
+};
+
+
 export {
   adminLoginHelper,
   fetchUserHelper,
@@ -177,5 +341,6 @@ export {
   blockUserHelper,
   unblockUserHelper,
   fetchPostsHelper,
-  fetchPostHelper
+  fetchPostHelper,
+  fetchDashBoardHelper,
 };

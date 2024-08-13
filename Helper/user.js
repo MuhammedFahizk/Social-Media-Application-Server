@@ -12,7 +12,6 @@ cloudinary.config({
 });
 import argon2 from 'argon2';
 import Posts from '../model/Posts.js';
-import { deleteImageCloudinary } from '../services/deleteImageCloudinary.js';
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const userValidateEmailHelper = async (user) => {
   try {
@@ -98,6 +97,8 @@ const userLoginHelper = async (user) => {
         }
         const isPasswordValid = await argon2.verify(existingUser.password, user.password);
         if (isPasswordValid) {
+          await User.findByIdAndUpdate(existingUser._id, { lastActive: Date.now() });
+
           resolve(existingUser);
         } else {
           reject(new Error('Invalid credentials'));
@@ -137,12 +138,13 @@ const googleLoginUser = async (user) => {
   return new Promise((resolve, reject) => {
     const { email } = user;
     User.findOne({ email })
-      .then((user) => {
-        if (user) {
-          if (user.isBlocked) {
+      .then(async(existingUser) => {
+        if (existingUser) {
+          if (existingUser.isBlocked) {
             reject(new Error('Your account is blocked. Please contact support.'));
           } else {
-            resolve(user);
+            await User.findByIdAndUpdate(existingUser._id, { lastActive: Date.now() });
+            resolve(existingUser);
           }
         } else {
           reject(new Error('User not found'));
@@ -710,7 +712,6 @@ const fetchPostsHelper = async (heading, offset, id) => {
 const deletePostHelper = async (id, _id) => {
   try {
     const post = await Posts.findById(id);
-    console.log(post);
     if (!post) {
       throw {  error: 'Post not found' };
     }
@@ -722,7 +723,6 @@ const deletePostHelper = async (id, _id) => {
     // await deleteImageCloudinary(post.imageUrl);
     await Posts.findByIdAndDelete(id)
       .then((res) => {
-        console.log(res,'sfdf');
         return { success: 'Post deleted successfully',res };
       })
       .catch((err) => {
@@ -974,7 +974,6 @@ const fetchProfileStoresHelper = (userId) => {
 const updatePostHelper = async (postId, data, _id) => {
   try {
     // Log the incoming data for debugging
-    console.log('Updating post with data:', data);
 
     const hashTags = data.hashTag?.match(/#[\w]+/g) || [];
     
@@ -1010,13 +1009,7 @@ const updatePostHelper = async (postId, data, _id) => {
 
 const findSuggestionHelper = async (currentUserId, offset = 0) => {
   try {
-    // Find the user by ID
-    // const user = await User.findById(userId);
-    // const following = user.following || [];
-    // const followingIds = following.map(follow => follow._id);
-
-    // Step 1: Find suggested users based on users followed by those the current user follows
-    
+       
     const suggestions = await User.aggregate([
       {
         $match: { _id: new ObjectId(currentUserId) },

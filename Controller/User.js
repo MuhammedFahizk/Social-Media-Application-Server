@@ -84,40 +84,72 @@ const verifyUser = async (req, res) => {
   const { accessToken, refreshToken } = req.cookies;
 
   try {
-    // Check if accessToken exists
-    if (accessToken) {
-      return res.status(200).json({ message: 'User is authenticated' });
+    if (!refreshToken) {
+      return res.status(401).json({
+        error: {
+          code: 'MISSING_REFRESH_TOKEN',
+          message: 'Refresh token is required.',
+        }
+      });
     }
 
-    // If accessToken is not present, check refreshToken
     const user = await User.findOne({ token: refreshToken });
-
     if (!user) {
-      console.error('Invalid Refresh token');
-      return res.status(401).json({ message: 'Invalid Refresh token' });
+      return res.status(401).json({
+        error: {
+          code: 'INVALID_REFRESH_TOKEN',
+          message: 'The refresh token is invalid.',
+        }
+      });
     }
 
-    // Generate new access token
+    // Check if the user is blocked
+    if (user.isBlocked) {
+      return res.status(403).json({
+        error: {
+          code: 'USER_BLOCKED',
+          message: 'The user account is blocked and cannot perform this action.',
+          details: 'Please contact support for further assistance.',
+        }
+      });
+    }
+
+    // If accessToken exists and is valid, respond with authentication success
+    if (accessToken) {
+      // Here you might want to validate the accessToken if you have a mechanism to do so
+      return res.status(200).json({ 
+        message: 'User is authenticated' 
+      });
+    }
+
+    // Generate a new access token
     const { newAccessToken } = await generateUserAccessToken(user);
-    console.error('newAccessToken:', newAccessToken);
-    // Set cookies with new tokens
+
+    // Set cookies with the new access token
     res.cookie('accessToken', newAccessToken, {
-      maxAge: 4 * 60 * 1000,
+      maxAge: 4 * 60 * 60 * 1000, // Adjusted to 4 hours
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production', // Set secure flag only in production
       sameSite: 'Strict',
     });
+
     return res.status(200).json({
       error: false,
-      accessToken,
+      accessToken: newAccessToken, // Send the new access token in the response
       refreshToken,
-      message: 'User   is Available ',
+      message: 'User is authenticated and tokens have been refreshed.',
     });
   } catch (err) {
     console.error('Error verifying user:', err);
-    return res.status(500).json({ message: 'Internal Server Error' });
+    return res.status(500).json({ 
+      error: {
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Internal Server Error',
+      }
+    });
   }
 };
+
 
 const generateAccessToken = async (req, res) => {
   try {
@@ -201,7 +233,7 @@ const loginWithGoogle = async (req, res) => {
           sameSite: 'Strict',
         });
         res.cookie('refreshToken', refreshToken, {
-          maxAge: 7 * 24 * 60 * 60 * 1000, // 1 week
+          maxAge: 7 * 24 * 60 * 60 * 1000,
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'Strict',
@@ -209,7 +241,6 @@ const loginWithGoogle = async (req, res) => {
 
         const { userName, _id, profilePicture, email, bio, following, followers } = response;
 
-        // Respond with tokens and user data
         res.status(200).json({
           error: false,
           message: 'User logged in successfully',
@@ -628,7 +659,6 @@ const updatePost = (req,res) => {
 const fetchSuggestions = async(req, res) => {
   const { _id} = req.user;
   const { offset } = req.params;
-  console.log (req.params);
   findSuggestionHelper(_id,Number(offset))
     .then((response) => {
       return res.status(200).json(response);

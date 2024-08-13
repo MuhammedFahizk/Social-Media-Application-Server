@@ -10,6 +10,7 @@ import {
   unblockUser,
   fetchPosts,
   fetchPost,
+  fetchDashBoard,
 } from '../controller/Admin.js';
 import { adminAuthentication } from '../Middlewares/adminAuthentication.js';
 const router = Router();
@@ -23,6 +24,7 @@ router.get('/users', usersList);
 router.get('/users/:id', fetchUser);
 router.get('/blockUser/:id', blockUser);
 router.get('/unblockUser/:id', unblockUser);
-router.get('/fetchPosts/:value',fetchPosts)
-router.get('/fetchPost/:postId',fetchPost)
+router.get('/fetchPosts/:value',fetchPosts);
+router.get('/fetchPost/:postId',fetchPost);
+router.get('/fetchDashBoard',fetchDashBoard);
 export default router;

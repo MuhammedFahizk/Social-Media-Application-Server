@@ -27,6 +27,7 @@ const userSchema = new Schema({
   followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', default: [] }],
   following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', default: [] }],
   token: { type: String },
+  lastActive: { type: Date, default: Date.now },
   story: [
     {
       imageUrl: {

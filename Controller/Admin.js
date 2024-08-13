@@ -1,13 +1,26 @@
-import { adminGoogleLoginHelper, adminLoginHelper, googleLoginAdmin, usersHelper,fetchUserHelper, unblockUserHelper, blockUserHelper, fetchPostsHelper, fetchPostHelper } from '../helper/admin.js';
-import  {generateAdminAccessToken, generateToken}  from '../Utils/admin/generateTokens.js';
-import { verifyAdminRefreshToken  } from '../Utils/admin/verifyAdminRefreshToken.js';
+import {
+  adminGoogleLoginHelper,
+  adminLoginHelper,
+  googleLoginAdmin,
+  usersHelper,
+  fetchUserHelper,
+  unblockUserHelper,
+  blockUserHelper,
+  fetchPostsHelper,
+  fetchPostHelper,
+  fetchDashBoardHelper,
+} from '../helper/admin.js';
+import {
+  generateAdminAccessToken,
+  generateToken,
+} from '../Utils/admin/generateTokens.js';
+import { verifyAdminRefreshToken } from '../Utils/admin/verifyAdminRefreshToken.js';
 import Admin from '../model/AdminModel.js';
 // Define your controller functions
 
 const adminLogin = async (req, res) => {
   try {
     const result = await adminLoginHelper(req.body);
-
 
     const { accessToken, refreshToken } = await generateToken(result);
 
@@ -61,10 +74,10 @@ const loginWithGoogle = async (req, res) => {
   try {
     const result = await adminGoogleLoginHelper(req.body.credential); // Await the promise
     googleLoginAdmin(result)
-      .then(async(response) => {
-        const { accessToken, refreshToken } = await generateToken(response); 
+      .then(async (response) => {
+        const { accessToken, refreshToken } = await generateToken(response);
         res.cookie('accessToken', accessToken, {
-          maxAge: 60 * 1000 , // 1 MInit
+          maxAge: 60 * 1000, // 1 MInit
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production', // Set secure flag only in production
           sameSite: 'Strict',
@@ -85,7 +98,6 @@ const loginWithGoogle = async (req, res) => {
       .catch((err) => {
         console.error(err);
         res.status(400).json({ error: true, message: err.message });
-        
       });
   } catch (error) {
     console.error(error);
@@ -93,7 +105,7 @@ const loginWithGoogle = async (req, res) => {
   }
 };
 
-const verifyAdmin = async(req,res)  => {
+const verifyAdmin = async (req, res) => {
   const { accessToken, refreshToken } = req.cookies;
 
   try {
@@ -110,11 +122,11 @@ const verifyAdmin = async(req,res)  => {
     }
 
     // Generate new access token
-    const {  newAccessToken } = await generateAdminAccessToken(admin);
+    const { newAccessToken } = await generateAdminAccessToken(admin);
 
     // Set cookies with new tokens
     res.cookie('accessToken', newAccessToken, {
-      maxAge: 60 * 1000 , 
+      maxAge: 60 * 1000,
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production', // Set secure flag only in production
       sameSite: 'Strict',
@@ -130,57 +142,55 @@ const verifyAdmin = async(req,res)  => {
     return res.status(500).json({ message: 'Internal Server Error' });
   }
 };
-const usersList = async(req,res) => {
+const usersList = async (req, res) => {
   try {
     usersHelper()
       .then((data) => {
         return res.status(200).json({ data: data, message: 'Users List' });
       })
       .catch((err) => {
-        return res.status(500).json({ message: 'Internal Server Error',err });
-
+        return res.status(500).json({ message: 'Internal Server Error', err });
       });
   } catch (error) {
     console.error(error);
-    return res.status(500).json({ message: 'Failed to authenticate' }); 
+    return res.status(500).json({ message: 'Failed to authenticate' });
   }
 };
 
-const fetchUser = (req,res) => {
-  const {id} = req.params;
+const fetchUser = (req, res) => {
+  const { id } = req.params;
   try {
     fetchUserHelper(id)
       .then((data) => {
         return res.status(200).json({ data: data, message: 'User Details' });
       })
       .catch((err) => {
-        return res.status(500).json({ message: 'Internal Server Error',err });
+        return res.status(500).json({ message: 'Internal Server Error', err });
       });
-  }
-  catch (error)  {
+  } catch (error) {
     console.error(error);
     return res.status(500).json({ message: 'Failed to authenticate' });
   }
 };
 
-const blockUser = (req,res) => {
-  const {id} = req.params;
+const blockUser = (req, res) => {
+  const { id } = req.params;
   blockUserHelper(id)
     .then((data) => {
       return res.status(200).json({ data: data, message: 'User Blocked' });
     })
     .catch((err) => {
-      return res.status(500).json({ message: 'Internal Server Error',err });
+      return res.status(500).json({ message: 'Internal Server Error', err });
     });
 };
-const unblockUser = (req,res) => {
-  const {id} = req.params;
+const unblockUser = (req, res) => {
+  const { id } = req.params;
   unblockUserHelper(id)
     .then((data) => {
       return res.status(200).json({ data: data, message: 'User Blocked' });
     })
     .catch((err) => {
-      return res.status(500).json({ message: 'Internal Server Error',err });
+      return res.status(500).json({ message: 'Internal Server Error', err });
     });
 };
 const fetchPosts = (req, res) => {
@@ -205,8 +215,20 @@ const fetchPost = async (req, res) => {
     res.status(200).json(post);
   } catch (error) {
     console.error(error); // Log the error for debugging purposes
-    res.status(500).json({ message: 'An error occurred', error: error.message });
+    res
+      .status(500)
+      .json({ message: 'An error occurred', error: error.message });
   }
+};
+
+const fetchDashBoard = async (req, res) => {
+  fetchDashBoardHelper()
+    .then((data) => {
+      return res.status(200).json({ data, message: 'Dashboard Fetched' });
+    })
+    .catch((err) => {
+      return res.status(500).json({ message: 'Internal Server Error', err });
+    });
 };
 export {
   verifyAdmin,
@@ -218,5 +240,6 @@ export {
   unblockUser,
   blockUser,
   fetchPosts,
-  fetchPost
+  fetchPost,
+  fetchDashBoard,
 };

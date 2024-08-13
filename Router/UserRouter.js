@@ -69,5 +69,5 @@ router.post('/incrementViewerCount', userProtectedRoutes, incrementViewerCount);
 router.get('/fetchProfileStores/:userId',userProtectedRoutes, fetchProfileStores);
 
 router.put('/updatePost', userProtectedRoutes,updatePost);
-router.get('/fetchSuggestions/:offset', userProtectedRoutes,fetchSuggestions)
+router.get('/fetchSuggestions/:offset', userProtectedRoutes,fetchSuggestions);
 export default router;
