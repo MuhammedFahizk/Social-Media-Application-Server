@@ -9,7 +9,7 @@ const generateToken = async (user) => {
     const payload = { _id: user._id };
     const isAdmin = true;
     const accessToken = sign({...payload, isAdmin}, process.env.ACCESS_TOKEN_SECRET, {
-      expiresIn: '1m',
+      expiresIn: '4m',
     });
     const refreshToken = sign({...payload, isAdmin}, process.env.REFRESH_TOKEN_PRIVATE_KEY, {
       expiresIn: '7d',

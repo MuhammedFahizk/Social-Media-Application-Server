@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { userVerification } from '../services/userVerification.js';
+import { generateUserAccessToken } from '../Utils/User/generateUserAccessToken.js';
 export const userAuthentication = (req, res, next) => {
 
   
@@ -16,7 +17,7 @@ export const userAuthentication = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(accessToken, process.env.ACCESS_TOKEN_SECRET);
-    
+    console.log(decoded);
     if (decoded.isAdmin) {
       return res.status(401).json({ message: 'Admin access not allowed' });
     }
@@ -62,8 +63,10 @@ export const userProtectedRoutes = async (req, res, next) => {
     req.user = decoded;
     next();
   } catch (error) {
-    console.error('Invalid token', error);
-    return res.status(403).json({ message: 'Invalid access token' });
+    if (error.name === 'TokenExpiredError') {
+      return next();
+    } else {
+      return res.status(401).json({ message: 'Invalid token' });
+    }
   }
 };
-

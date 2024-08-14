@@ -4,6 +4,7 @@ import { OAuth2Client } from 'google-auth-library';
 import { User } from '../model/User.js';
 import Posts from '../model/Posts.js';
 import  fetchMonthlyUserData  from '../services/fetchMonthlyUserData.js';
+import users from '../services/usersNotfic.js';
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const adminLoginHelper = (loginData) =>
   new Promise((resolve, reject) => {
@@ -12,16 +13,18 @@ const adminLoginHelper = (loginData) =>
     Admin.findOne({ email })
       .then(async (admin) => {
         if (!admin) {
-          throw new Error('Email or Password is Mismatch');
+          throw new Error('Email or Password is Mismatch',email);
         }
+        console.log(password);
         const isPasswordValid = await verify(admin.password, password);
         if (isPasswordValid) {
           resolve(admin);
         } else {
-          reject(new Error('Invalid password'));
+          reject(new Error('Invalid password', password));
         }
       })
       .catch((error) => {
+        console.log(error);
         reject(error);
       });
   });
@@ -331,6 +334,44 @@ const fetchDashBoardHelper = async () => {
   }
 };
 
+// notification
+const sendNotificationHelper = async (message, recipients, adminId, io) => {
+  try {
+    // Find the admin by ID
+    const admin = await Admin.findById(adminId);
+    if (!admin) {
+      throw new Error('Admin not found');
+    }
+
+    // Create notifications for each recipient
+    const notifications = recipients.map(userId => ({
+      message,
+      recipient: userId,
+    }));
+
+    // Push notifications to the admin's notifications array
+    admin.notifications.push(...notifications);
+    await admin.save();
+
+    // Emit notifications to each recipient via Socket.IO
+    recipients.forEach(userId => {
+      const socketId = users.get(userId);
+
+      if (socketId) {
+        io.to(socketId).emit('newNotification', { userId, message });
+      } else {
+        console.error(`User ${userId} not connected`);
+        // Optionally handle offline users here
+      }
+    });
+
+    return true;
+  } catch (error) {
+    console.error(`Error sending notification: ${error.message}`);
+    throw new Error(error.message);
+  }
+};
+
 
 export {
   adminLoginHelper,
@@ -343,4 +384,6 @@ export {
   fetchPostsHelper,
   fetchPostHelper,
   fetchDashBoardHelper,
+
+  sendNotificationHelper,
 };

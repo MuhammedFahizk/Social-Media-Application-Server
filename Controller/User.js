@@ -103,7 +103,6 @@ const verifyUser = async (req, res) => {
       });
     }
 
-    // Check if the user is blocked
     if (user.isBlocked) {
       return res.status(403).json({
         error: {
@@ -116,7 +115,6 @@ const verifyUser = async (req, res) => {
 
     // If accessToken exists and is valid, respond with authentication success
     if (accessToken) {
-      // Here you might want to validate the accessToken if you have a mechanism to do so
       return res.status(200).json({ 
         message: 'User is authenticated' 
       });
@@ -127,7 +125,7 @@ const verifyUser = async (req, res) => {
 
     // Set cookies with the new access token
     res.cookie('accessToken', newAccessToken, {
-      maxAge: 4 * 60 * 60 * 1000, // Adjusted to 4 hours
+      maxAge: 4 * 60,
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production', // Set secure flag only in production
       sameSite: 'Strict',

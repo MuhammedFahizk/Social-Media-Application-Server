@@ -2,20 +2,25 @@ import mongoose, { model } from 'mongoose';
 
 const { Schema } = mongoose;
 
-// Define the Notification Schema
 const notificationSchema = new Schema({
   message: {
     type: String,
+    required: true,
   },
   recipient: {
     type: Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'User', // Reference to the User who will receive the notification
   },
   createdAt: {
     type: Date,
     default: Date.now,
   },
+  isRead: {
+    type: Boolean,
+    default: false,
+  },
 });
+
 
 const adminSchema = new Schema({
   username: {

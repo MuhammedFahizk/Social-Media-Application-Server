@@ -9,6 +9,7 @@ import {
   fetchPostsHelper,
   fetchPostHelper,
   fetchDashBoardHelper,
+  sendNotificationHelper,
 } from '../helper/admin.js';
 import {
   generateAdminAccessToken,
@@ -21,7 +22,6 @@ import Admin from '../model/AdminModel.js';
 const adminLogin = async (req, res) => {
   try {
     const result = await adminLoginHelper(req.body);
-
     const { accessToken, refreshToken } = await generateToken(result);
 
     res.cookie('accessToken', accessToken, {
@@ -230,6 +230,17 @@ const fetchDashBoard = async (req, res) => {
       return res.status(500).json({ message: 'Internal Server Error', err });
     });
 };
+
+const sendNotification = async (req, res) => {
+  const { message, recipients } = req.body;
+  try {
+    await sendNotificationHelper(message, recipients, req.admin._id, req.io);
+    return res.status(200).json({ message: 'Notification Sent' });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Internal Server Error', error: error.message });
+  }
+};
 export {
   verifyAdmin,
   adminLogin,
@@ -242,4 +253,6 @@ export {
   fetchPosts,
   fetchPost,
   fetchDashBoard,
+  //Notification
+  sendNotification
 };
