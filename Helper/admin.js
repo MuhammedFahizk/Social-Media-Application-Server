@@ -361,6 +361,7 @@ const sendNotificationHelper = async (message, recipients, adminId, io) => {
         io.to(socketId).emit('newNotification', { userId, message });
       } else {
         console.error(`User ${userId} not connected`);
+        
         // Optionally handle offline users here
       }
     });

@@ -31,6 +31,7 @@ import {
   fetchProfileStoresHelper,
   updatePostHelper,
   findSuggestionHelper,
+  fetchUserNotificationsHelper,
 } from '../helper/user.js';
 import { User } from '../model/User.js';
 import { deleteImageCloudinary } from '../services/deleteImageCloudinary.js';
@@ -299,7 +300,7 @@ const homePage = (req, res) => {
 const followUser = async (req,res) => {
   const { _id } = req.user;
   const { id } = req.params;
-  followingHelper(_id,id)
+  followingHelper(_id,id, req.io)
     .then((response) => {
       return res.status(200).json(response);
     })
@@ -312,7 +313,7 @@ const followUser = async (req,res) => {
 const unFollowUser = async (req,res) => {
   const { _id } = req.user;
   const { id } = req.params;
-  unFollowingHelper(_id,id)
+  unFollowingHelper(_id,id, req.io)
     .then((response) => {
       return res.status(200).json(response);
     })
@@ -511,7 +512,7 @@ const likePost = async (req, res) => {
     if (!id || !_id) {
       return res.status(400).json({ message: 'Invalid request parameters' });
     }
-    await likePostHelper(id, _id);
+    await likePostHelper(id, _id, req.io);
 
     res.status(200).json({ message: 'Post un liked successfully' });
   } catch (error) {
@@ -667,7 +668,23 @@ const fetchSuggestions = async(req, res) => {
       });
     });
 };
+const fetchUserNotifications = async(req, res) => {
+  const { _id } = req.user;
+  try {
+    fetchUserNotificationsHelper(_id)
+      .then((response) => {
+        return res.status(200).json(response);
+      })
+      .catch((error) => {
+        console.error('Failed to fetch user notifications:', error);
+        return res.status(500).json({ error: 'An error occurred while fetching the user notifications'});
+      });
+  } catch (error) {
+    console.error('Failed to fetch user notifications:', error);
+    return res.status(500).json({ error: 'An error occurred while fetching the user notifications'});
+  }
 
+};
 export {
   userSignUp,
   verifyUser,
@@ -699,5 +716,6 @@ export {
   incrementViewerCount,
   fetchProfileStores,
   updatePost,
-  fetchSuggestions
+  fetchSuggestions,
+  fetchUserNotifications
 };

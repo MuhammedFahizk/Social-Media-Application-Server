@@ -29,7 +29,8 @@ import {
   incrementViewerCount,
   fetchProfileStores,
   updatePost,
-  fetchSuggestions
+  fetchSuggestions,
+  fetchUserNotifications
 } from '../controller/User.js';
 
 import express from 'express';
@@ -70,4 +71,5 @@ router.get('/fetchProfileStores/:userId',userProtectedRoutes, fetchProfileStores
 
 router.put('/updatePost', userProtectedRoutes,updatePost);
 router.get('/fetchSuggestions/:offset', userProtectedRoutes,fetchSuggestions);
+router.get('/fetchUserNotifications',userProtectedRoutes,fetchUserNotifications);
 export default router;

@@ -28,6 +28,7 @@ const userSchema = new Schema({
   following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', default: [] }],
   token: { type: String },
   lastActive: { type: Date, default: Date.now },
+  
   story: [
     {
       imageUrl: {
@@ -46,6 +47,7 @@ const userSchema = new Schema({
       ],
     },
   ],
+
 }, { timestamps: true });
 
 const otpSchema = new Schema({

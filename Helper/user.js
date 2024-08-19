@@ -1,6 +1,7 @@
 import { TOTP } from 'totp-generator';
 import { Otp, User } from '../model/User.js';
 import { OAuth2Client } from 'google-auth-library';
+
 import sendOtpUserOtp from '../services/nodeMailer.js';
 
 import cloudinary from 'cloudinary';
@@ -12,6 +13,8 @@ cloudinary.config({
 });
 import argon2 from 'argon2';
 import Posts from '../model/Posts.js';
+import users from '../services/usersNotfic.js';
+import Notification from '../model/Notification.js';
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const userValidateEmailHelper = async (user) => {
   try {
@@ -253,28 +256,63 @@ const findSuggestion = async (id,) => {
   }
 };
 
+const followingHelper = async (_id, userId, io) => {
+  try {
+    const follower = await User.findById(_id);
+    const following = await User.findById(userId);
 
-const followingHelper = (_id, userId) => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const follower = await User.findById(_id);
-      const following = await User.findById(userId);
-
-      if (!follower && !following) {
-        throw new Error('User not found');
-      }
-      following.followers.push(_id);
-      // Add userId to the following array
-      follower.following.push(userId);
-      
-      // Save the updated user document
-      await follower.save();
-      await following.save();
-      resolve(following);
-    } catch (error) {
-      reject(error);
+    if (!follower || !following) {
+      throw new Error('User not found');
     }
-  });
+
+    // Add _id to the following's followers array
+    following.followers.push(_id);
+    // Add userId to the follower's following array
+    follower.following.push(userId);
+
+    // Save the updated user documents
+    await follower.save();
+    await following.save();
+
+    // Prepare notification details
+    const details = {
+      userName: follower.userName,
+      profilePicture: follower.profilePicture,
+    };
+
+    // Check if the user is online
+    const socketId = users.get(userId);
+    const delivered = socketId ? true : false;
+    await Notification.deleteOne({
+      userId: userId,
+      senderId: _id,
+      type: 'follow',
+    });
+
+    // Create and save the notification
+    const notification = new Notification({
+      userId: userId,
+      senderId: _id,
+      type: 'follow',
+      message: `${follower.userName} started following you`,
+      isRead: false,
+      delivered: delivered
+    });
+
+    await notification.save();
+
+    // Send real-time notification if user is online
+    if (delivered) {
+      io.to(socketId).emit('newNotification', { notification, senderDetails: details });
+    } else {
+      console.error(`User ${userId} not connected`);
+    }
+
+    return following;
+  } catch (error) {
+    console.error('Error in followingHelper:', error);
+    throw error;
+  }
 };
 
 const unFollowingHelper = async (_id, userId) => {
@@ -290,8 +328,7 @@ const unFollowingHelper = async (_id, userId) => {
 
 
     await follower.save();
-    await following.save();
-
+    await following.save();     
     return { message: 'Un follow successful' };
   } catch (error) {
     console.error('Error in unFollowingHelper:', error);
@@ -513,10 +550,11 @@ const unLikePostHelper = (id, _id) => {
 };
 
 
-const likePostHelper = async (id, _id) => {
+const likePostHelper = async (id, _id, io) => {
   try {
     // Check if the user has already liked the post
     const post = await Posts.findOne({ _id: id, likes: _id });
+    const user = await User.findById(_id);
 
     if (post) {
       // If the post is found with the user's ID in likes, reject the promise
@@ -524,14 +562,47 @@ const likePostHelper = async (id, _id) => {
     }
 
     // If the user has not liked the post, proceed to add the like
-    const result = await Posts.updateOne(
+    const result = await Posts.findOneAndUpdate(
       { _id: id },
-      { $push: { likes: _id } }
+      { $push: { likes: _id } },
+      { new: true }
     );
 
-    if (result.matchedCount === 0) {
+    if (!result) {
       // No matching document found
       return Promise.reject(new Error('No matching post found to like'));
+    }
+
+    const socketId = users.get(result.author._id.toString());
+    const delivered = !!socketId;
+    const details = {
+      userName: user.userName,
+      profilePicture: user.profilePicture,
+    };
+
+    // Delete existing like notification, if any
+    await Notification.findOneAndDelete({
+      userId: result.author._id.toString(),
+      senderId: _id,
+      postId: result._id,
+      type: 'like',
+    });
+
+    // Create a new notification
+    const notification = new Notification({
+      userId: result.author._id.toString(),
+      senderId: _id,
+      postId: result._id,
+      type: 'like',
+      message: 'liked your post',
+      isRead: false,
+      delivered: delivered,
+    });
+    await notification.save();
+
+    // Send real-time notification if the author is online
+    if (socketId && !result.author._id.equals(_id)) {
+      io.to(socketId).emit('newNotification', { notification, senderDetails: details });
     }
 
     return result;
@@ -539,6 +610,7 @@ const likePostHelper = async (id, _id) => {
     return Promise.reject(error);
   }
 };
+
 const userCreateComment = async (postId, userId, commentContent) => {
   try {
 
@@ -823,7 +895,7 @@ const getFollowingsHelper = async (userId, offset = 0, query) => {
   }
 };
 
-const deleteCommentHelper = (commentId, postId, _id) => {
+const deleteCommentHelper = (commentId, postId,) => {
   return new Promise(async (resolve, reject) => {
     try {
       const updatedPost = await Posts.findOneAndUpdate(
@@ -1075,6 +1147,74 @@ const findSuggestionHelper = async (currentUserId, offset = 0) => {
     throw new Error(`Failed to find user suggestions: ${error.message}`);
   }
 };
+
+const fetchUserNotificationsHelper = async (userId) => {
+  try {
+    const notifications = await Notification.aggregate([
+      {
+        $match: {
+          $and: [
+            { userId: new ObjectId(userId),},
+            {delivered: true},
+          ]
+
+        }
+      },
+      {
+        $sort: {
+          createdAt: -1, // Sort by creation date, most recent first
+        }
+      },
+      {
+        $lookup: {
+          from: 'users', // The collection name for users
+          localField: 'senderId', // The field in Notification that references the sender
+          foreignField: '_id', // The field in User that matches the senderId
+          as: 'senderDetails' // The name of the array where the sender data will be stored
+        }
+      },
+      {
+        $unwind: '$senderDetails' // Deconstruct the senderDetails array to merge with the root document
+      },
+      {
+        $lookup:{
+          from: 'posts',
+          localField: 'postId',
+          foreignField: '_id',
+          as: 'postDetails'
+        }
+      },
+      {
+        $unwind: '$postDetails'
+      },
+      {
+        $project: {
+          notification: {
+            userId: '$userId',
+            senderId: '$senderId',
+            type: '$type',
+            message: '$message',
+            isRead: '$isRead',
+            postId: '$postId',
+            _id: '$_id',
+            createdAt: '$createdAt',
+          },
+          senderDetails: {
+            userName: '$senderDetails.userName',
+            profilePicture: '$senderDetails.profilePicture',
+            postImage: '$postDetails.imageUrl'
+          }
+        }
+      }
+    ]);
+
+    return notifications;
+  } catch (error) {
+    console.error('Error in fetchUserNotificationsHelper:', error);
+    throw error;
+  }
+};
+
 export {
   userLoginHelper,
   logoutHelper,
@@ -1104,5 +1244,6 @@ export {
   incrementViewerCountHelper,
   fetchProfileStoresHelper,
   updatePostHelper,
-  findSuggestionHelper
+  findSuggestionHelper,
+  fetchUserNotificationsHelper,
 };
