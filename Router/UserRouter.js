@@ -30,7 +30,12 @@ import {
   fetchProfileStores,
   updatePost,
   fetchSuggestions,
-  fetchUserNotifications
+  fetchUserNotifications,
+  editProfile,
+  hideContent,
+  fetchHideUsers,
+  fetchHidePosts,
+  unHideContent
 } from '../controller/User.js';
 
 import express from 'express';
@@ -68,8 +73,12 @@ router.delete('/deleteComment',userProtectedRoutes, deleteComment);
 router.get('/getFreshStories/',userProtectedRoutes, getFreshStories);
 router.post('/incrementViewerCount', userProtectedRoutes, incrementViewerCount);
 router.get('/fetchProfileStores/:userId',userProtectedRoutes, fetchProfileStores);
-
+router.post('/edit-profile',userProtectedRoutes,editProfile);
 router.put('/updatePost', userProtectedRoutes,updatePost);
 router.get('/fetchSuggestions/:offset', userProtectedRoutes,fetchSuggestions);
 router.get('/fetchUserNotifications',userProtectedRoutes,fetchUserNotifications);
+router.post('/hide-content',userProtectedRoutes,hideContent);
+router.post('/unHide-content',userProtectedRoutes,unHideContent);
+router.get('/hide-users',userProtectedRoutes,fetchHideUsers);
+router.get('/hide-posts',userProtectedRoutes,fetchHidePosts);
 export default router;

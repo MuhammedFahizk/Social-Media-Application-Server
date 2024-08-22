@@ -5,6 +5,8 @@ import { User } from '../model/User.js';
 import Posts from '../model/Posts.js';
 import  fetchMonthlyUserData  from '../services/fetchMonthlyUserData.js';
 import users from '../services/usersNotfic.js';
+import { ObjectId } from 'mongodb';
+
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const adminLoginHelper = (loginData) =>
   new Promise((resolve, reject) => {
@@ -83,16 +85,22 @@ const usersHelper = async () => {
   });
 };
 const fetchUserHelper = (id) => {
-  return new Promise((resolve, reject) => {
-    User.findById(id)
-      .populate('following')
-      .populate('followers')
-      .then((user) => {
-        resolve(user);
-      })
-      .catch((error) => {
-        reject(error);
-      });
+  return new Promise(async (resolve, reject) => {
+    try {
+      const user = await User.findById(id)
+        .populate('following')
+        .populate('followers');
+
+      if (!user) {
+        return reject(new Error('User not found'));
+      }
+
+      const posts = await Posts.find({ author: new ObjectId(id) });
+
+      resolve({ user, posts });
+    } catch (error) {
+      reject(error);
+    }
   });
 };
 

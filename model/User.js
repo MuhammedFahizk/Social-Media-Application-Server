@@ -26,9 +26,10 @@ const userSchema = new Schema({
   profilePicture: { type: String },
   followers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', default: [] }],
   following: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', default: [] }],
-  token: { type: String },
+  token: { type: String }, 
   lastActive: { type: Date, default: Date.now },
-  
+  hiddenPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post', default: [] }],
+  hiddenUsers: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', default: [] }],
   story: [
     {
       imageUrl: {

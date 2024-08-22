@@ -32,6 +32,13 @@ import {
   updatePostHelper,
   findSuggestionHelper,
   fetchUserNotificationsHelper,
+  editProfileHelper,
+  hidePostHelper,
+  hideUserHelper,
+  fetchHideUsersHelper,
+  fetchHidePostsHelper,
+  unHidePostHelper,
+  unHideUserHelper,
 } from '../helper/user.js';
 import { User } from '../model/User.js';
 import { deleteImageCloudinary } from '../services/deleteImageCloudinary.js';
@@ -639,6 +646,21 @@ const fetchProfileStores = async (req, res) => {
     res.status(500).json({ error: 'An error occurred while fetching the profile stores.' });
   }
 };
+
+
+const editProfile = async (req, res) => {
+  const { _id } = req.user; // Assuming req.user contains the authenticated user's ID
+  const data = req.body; // Directly extracting the data from req.body
+  console.log(data);
+  try {
+    const user = await editProfileHelper(_id, data);
+    res.status(200).json({ message: 'Profile updated successfully', user });
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+};
+
 const updatePost = (req,res) => {
   try {
     const { _id } = req.user;
@@ -685,6 +707,72 @@ const fetchUserNotifications = async(req, res) => {
   }
 
 };
+const hideContent = async (req, res) => {
+  const {_id} = req.user; // Assume this is the current user's ID
+  const { type, id } = req.body; // Get the type (post/user) and the specific ID from the request body
+
+  try {
+    let result;
+    if (type === 'post') {
+      result = await hidePostHelper(id,_id);
+    } else if (type === 'user') {
+      result = await hideUserHelper(id, _id);
+    } else {
+      return res.status(400).json({ error: 'Invalid type provided' });
+    }
+
+    console.log(result);
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('Error in hideContent:', error);
+    return res.status(500).json({ error: 'Failed to hide content' });
+  }
+};
+
+
+const unHideContent = async (req, res) => {
+  const {_id} = req.user; // Assume this is the current user's ID
+  const { type, id } = req.body; // Get the type (post/user) and the specific ID from the request body
+  console.log(req.body);
+  try {
+    let result;
+    if (type === 'post') {
+      result = await unHidePostHelper(id,_id);
+      console.log(type);
+    } else if (type === 'user') {
+      result = await unHideUserHelper(id, _id);
+    } else {
+      return res.status(400).json({ error: 'Invalid type provided' });
+    }
+
+    console.log(result);
+    return res.status(200).json(result);
+  } catch (error) {
+    console.error('Error in hideContent:', error);
+    return res.status(500).json({ error: 'Failed to hide content' });
+  }
+};
+const fetchHideUsers = async (req, res) => {
+  try {
+    const { _id } = req.user; // Assume this is the current user's ID from the request object
+    const hiddenUsers = await fetchHideUsersHelper(_id);
+    return res.status(200).json(hiddenUsers); // Send the list of hidden users as the response
+  } catch (error) {
+    console.error('Failed to fetch hidden users:', error);
+    return res.status(500).json({ error: 'An error occurred while fetching the hidden users' });
+  }
+};
+
+const fetchHidePosts = async (req, res) => {
+  try {
+    const { _id } = req.user; // Assuming the user's ID is set in req.user
+    const hiddenPosts = await fetchHidePostsHelper(_id);
+    return res.status(200).json(hiddenPosts); // Send the populated hidden posts as the response
+  } catch (error) {
+    console.error('Failed to fetch hidden posts:', error);
+    return res.status(500).json({ error: 'An error occurred while fetching the hidden posts' });
+  }
+};
 export {
   userSignUp,
   verifyUser,
@@ -717,5 +805,10 @@ export {
   fetchProfileStores,
   updatePost,
   fetchSuggestions,
-  fetchUserNotifications
+  fetchUserNotifications,
+  editProfile,
+  hideContent,
+  fetchHideUsers,
+  fetchHidePosts,
+  unHideContent
 };

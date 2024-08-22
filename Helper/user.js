@@ -638,15 +638,22 @@ const userCreateComment = async (postId, userId, commentContent) => {
 };
 
 const fetchPostsHelper = async (heading, offset, id) => {
-  let postItems = [];
   offset = parseInt(offset);
+  let postItems = [];
+
   try {
+    // Fetch the user to get hidden posts and users
     const user = await User.findById(id);
-    if (!user && heading === 'Friends') throw new Error('User not found');
+    if (!user && heading === 'Friends') {
+      throw new Error('User not found');
+    }
 
     switch (heading) {
       case 'Recent':
-        postItems = await Posts.find()
+        postItems = await Posts.find({
+          _id: { $nin: user.hiddenPosts || [] }, // Exclude hidden posts
+          author: { $nin: user.hiddenUsers || [] } // Exclude posts by hidden users
+        })
           .sort({ createdAt: -1 })
           .skip(offset)
           .limit(5)
@@ -654,11 +661,14 @@ const fetchPostsHelper = async (heading, offset, id) => {
           .populate({
             path: 'comments.author',
             select: 'userName profilePicture'
-          });
+          })
+          .exec();
         break;
 
       case 'Friends':
-        postItems = await Posts.find({ author: { $in: user.following } })
+        postItems = await Posts.find({
+          author: { $in: user.following || [] }
+        })
           .sort({ createdAt: -1 })
           .skip(offset)
           .limit(5)
@@ -666,11 +676,18 @@ const fetchPostsHelper = async (heading, offset, id) => {
           .populate({
             path: 'comments.author',
             select: 'userName profilePicture'
-          });
+          })
+          .exec();
         break;
 
       case 'Popular':
         postItems = await Posts.aggregate([
+          {
+            $match: {
+              _id: { $nin: user.hiddenPosts || [] }, // Exclude hidden posts
+              author: { $nin: user.hiddenUsers || [] } // Exclude posts by hidden users
+            }
+          },
           {
             $lookup: {
               from: 'users',
@@ -770,17 +787,19 @@ const fetchPostsHelper = async (heading, offset, id) => {
           { $limit: 5 }
         ]);
         break;
-      
+
       default:
         throw new Error(`Unsupported heading: ${heading}`);
     }
 
     return postItems;
   } catch (error) {
-    console.error('Error fetching post helper:', error);
+    console.error('Error fetching posts:', error);
     throw error;
   }
 };
+
+
 const deletePostHelper = async (id, _id) => {
   try {
     const post = await Posts.findById(id);
@@ -1043,6 +1062,25 @@ const fetchProfileStoresHelper = (userId) => {
   });
 };
 
+const editProfileHelper = async (userId, data) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { $set: data },
+      { new: true, runValidators: true } // Return the updated document and run validation
+    );
+    
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    return user;
+  } catch (error) {
+    throw new Error(error.message);
+  }
+};
+
+
 const updatePostHelper = async (postId, data, _id) => {
   try {
     // Log the incoming data for debugging
@@ -1215,6 +1253,130 @@ const fetchUserNotificationsHelper = async (userId) => {
   }
 };
 
+const hidePostHelper = async (postId, userId) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { $addToSet: { hiddenPosts: postId } },
+      { new: true }
+    );
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    console.log(`Hiding post with ID: ${postId} for user with ID: ${userId}`);
+    return { message: 'Post hidden successfully' };
+  } catch (error) {
+    console.error('Error hiding post:', error);
+    throw new Error('Failed to hide post');
+  }
+};
+
+const hideUserHelper = async (userId, currentUserId) => {
+  // Hide a user from the current user's notifications by adding userId to the hiddenUsers array
+  try {
+    // Find the user by currentUserId and add userId to the hiddenUsers array
+    const user = await User.findByIdAndUpdate(
+      currentUserId,
+      { $addToSet: { hiddenUsers: userId } }, // $addToSet ensures no duplicates
+      { new: true } // Return the updated document
+    );
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    console.log(`Hiding user with ID: ${userId}`);
+    return { message: 'User hidden successfully' };
+  } catch (error) {
+    console.error('Error hiding user:', error);
+    throw new Error('Failed to hide user');
+  }
+};
+
+
+const fetchHideUsersHelper = async (userId) => {
+  try {
+    const user = await User.findById(userId)
+      .populate('hiddenUsers', 'userName email profilePicture')
+      .exec();
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    return user.hiddenUsers;
+  } catch (error) {
+    console.error('Error fetching hidden users:', error);
+    throw error; // Re-throw the error to be caught by fetchHideUsers
+  }
+};
+
+const fetchHidePostsHelper = async (userId) => {
+  try {
+    // Fetch the user and populate hidden posts
+    const user = await User.findById(userId)
+      .populate({
+        path: 'hiddenPosts',
+        select: 'title content imageUrl author', // Ensure this matches your Post schema
+        populate: {
+          path: 'author', // Populate the author field if it's a reference
+          select: 'userName' // Select only the fields you need
+        }
+      })
+      .exec();
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    return user.hiddenPosts; // Return the populated hidden posts
+  } catch (error) {
+    console.error('Error fetching hidden posts:', error);
+    throw error; // Re-throw the error to be caught by fetchHidePosts
+  }
+};
+
+const unHidePostHelper = async (postId, userId) => {
+  try {
+    // Find the user and remove the post ID from hiddenPosts array
+    const result = await User.findByIdAndUpdate(
+      userId,
+      { $pull: { hiddenPosts: postId } },
+      { new: true, projection: { hiddenPosts: 1 } } // Return the updated hiddenPosts array
+    );
+
+    if (!result) {
+      throw new Error('User not found');
+    }
+
+    return result.hiddenPosts;
+  } catch (error) {
+    console.error('Error in unHidePostHelper:', error);
+    throw error;
+  }
+};
+
+const unHideUserHelper = async (userIdToUnhide, currentUserId) => {
+  try {
+    // Find the current user and remove the user ID from hiddenUsers array
+    const result = await User.findByIdAndUpdate(
+      currentUserId,
+      { $pull: { hiddenUsers: userIdToUnhide } },
+      { new: true, projection: { hiddenUsers: 1 } } // Return the updated hiddenUsers array
+    );
+
+    if (!result) {
+      throw new Error('User not found');
+    }
+
+    return result.hiddenUsers;
+  } catch (error) {
+    console.error('Error in unHideUserHelper:', error);
+    throw error;
+  }
+};
 export {
   userLoginHelper,
   logoutHelper,
@@ -1246,4 +1408,11 @@ export {
   updatePostHelper,
   findSuggestionHelper,
   fetchUserNotificationsHelper,
+  editProfileHelper,
+  hideUserHelper,
+  hidePostHelper,
+  fetchHideUsersHelper,
+  fetchHidePostsHelper,
+  unHidePostHelper,
+  unHideUserHelper,
 };
