@@ -1,3 +1,4 @@
+import { response } from 'express';
 import { generateUserAccessToken } from '../Utils/User/generateUserAccessToken.js';
 import { generateUserToken } from '../Utils/User/generateUserToken.js';
 import { verifyUserRefreshToken } from '../Utils/User/verifyUserRefreshToken.js';
@@ -39,6 +40,7 @@ import {
   fetchHidePostsHelper,
   unHidePostHelper,
   unHideUserHelper,
+  resetPasswordHelper,
 } from '../helper/user.js';
 import { User } from '../model/User.js';
 import { deleteImageCloudinary } from '../services/deleteImageCloudinary.js';
@@ -773,6 +775,23 @@ const fetchHidePosts = async (req, res) => {
     return res.status(500).json({ error: 'An error occurred while fetching the hidden posts' });
   }
 };
+const resetPassword = async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  // Validate and process the data
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ message: 'Both current and new passwords are required.' });
+  }
+
+  try {
+    // Await the resetPasswordHelper function to ensure proper execution
+    const response = await resetPasswordHelper(req.user._id, currentPassword, newPassword);
+    return res.status(200).json({ message: 'Password updated successfully', user: response });
+  } catch (error) {
+    console.error('Error resetting password:', error);
+    return res.status(500).json({ error: error.message || 'Failed to reset password' });
+  }
+};
 export {
   userSignUp,
   verifyUser,
@@ -810,5 +829,6 @@ export {
   hideContent,
   fetchHideUsers,
   fetchHidePosts,
-  unHideContent
+  unHideContent,
+  resetPassword
 };

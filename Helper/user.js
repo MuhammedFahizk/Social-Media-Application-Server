@@ -1377,6 +1377,28 @@ const unHideUserHelper = async (userIdToUnhide, currentUserId) => {
     throw error;
   }
 };
+
+
+const resetPasswordHelper = async (userId, currentPassword, newPassword) => {
+  try {
+    const user = await User.findById(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const isPasswordValid = await argon2.verify(user.password, currentPassword);
+    if (!isPasswordValid) {
+      throw new Error('Invalid password');
+    }
+
+    user.password = await argon2.hash(newPassword);
+    await user.save();
+
+    return user;
+  } catch (error) {
+    throw error;
+  }
+};
 export {
   userLoginHelper,
   logoutHelper,
@@ -1415,4 +1437,5 @@ export {
   fetchHidePostsHelper,
   unHidePostHelper,
   unHideUserHelper,
+  resetPasswordHelper,
 };

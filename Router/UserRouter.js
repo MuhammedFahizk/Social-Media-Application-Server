@@ -35,7 +35,8 @@ import {
   hideContent,
   fetchHideUsers,
   fetchHidePosts,
-  unHideContent
+  unHideContent,
+  resetPassword
 } from '../controller/User.js';
 
 import express from 'express';
@@ -81,4 +82,5 @@ router.post('/hide-content',userProtectedRoutes,hideContent);
 router.post('/unHide-content',userProtectedRoutes,unHideContent);
 router.get('/hide-users',userProtectedRoutes,fetchHideUsers);
 router.get('/hide-posts',userProtectedRoutes,fetchHidePosts);
+router.post('/reset-password',userProtectedRoutes, resetPassword)
 export default router;
