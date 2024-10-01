@@ -41,6 +41,12 @@ import {
   unHidePostHelper,
   unHideUserHelper,
   resetPasswordHelper,
+  reportPostHelper,
+  fetchUserHelper,
+  fetchChatsHelper,
+  sendMessageHelper,
+  fetchChatListHelper,
+  readMessageHelper,
 } from '../helper/user.js';
 import { User } from '../model/User.js';
 import { deleteImageCloudinary } from '../services/deleteImageCloudinary.js';
@@ -653,7 +659,6 @@ const fetchProfileStores = async (req, res) => {
 const editProfile = async (req, res) => {
   const { _id } = req.user; // Assuming req.user contains the authenticated user's ID
   const data = req.body; // Directly extracting the data from req.body
-  console.log(data);
   try {
     const user = await editProfileHelper(_id, data);
     res.status(200).json({ message: 'Profile updated successfully', user });
@@ -723,7 +728,6 @@ const hideContent = async (req, res) => {
       return res.status(400).json({ error: 'Invalid type provided' });
     }
 
-    console.log(result);
     return res.status(200).json(result);
   } catch (error) {
     console.error('Error in hideContent:', error);
@@ -735,19 +739,16 @@ const hideContent = async (req, res) => {
 const unHideContent = async (req, res) => {
   const {_id} = req.user; // Assume this is the current user's ID
   const { type, id } = req.body; // Get the type (post/user) and the specific ID from the request body
-  console.log(req.body);
   try {
     let result;
     if (type === 'post') {
       result = await unHidePostHelper(id,_id);
-      console.log(type);
     } else if (type === 'user') {
       result = await unHideUserHelper(id, _id);
     } else {
       return res.status(400).json({ error: 'Invalid type provided' });
     }
 
-    console.log(result);
     return res.status(200).json(result);
   } catch (error) {
     console.error('Error in hideContent:', error);
@@ -792,6 +793,92 @@ const resetPassword = async (req, res) => {
     return res.status(500).json({ error: error.message || 'Failed to reset password' });
   }
 };
+const reportPost = async (req,res) => {
+  const data = req.body;
+  reportPostHelper(data, req.user._id)
+    .then((result) => {
+      res.status(200).json(result);
+    })
+    .catch((error) => {
+      console.error('Error reporting post:', error);
+      res.status(500).json({ error: error.message || 'Failed to report post' });
+    });
+};
+const fetchChats = async (req, res) => {
+  try {
+    const { _id } = req.user;
+    const { userId } = req.params;
+
+    // Fetch the user using the helper function
+    const user = await fetchUserHelper(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Assuming fetchChatsHelper is defined somewhere and returns chats for a given user
+    const chats = await fetchChatsHelper(userId, _id, req.io);
+    
+    // Return the chats in the response
+    return res.status(200).json({chats, user});
+  } catch (error) {
+    console.error('Error fetching chats:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+const sendMessage = async (req, res) => {
+  const { receiver } = req.params;
+  const { message } = req.body;
+  const { _id: senderId } = req.user;
+
+  try {
+    // Ensure receiver and message are provided
+    if (!receiver || !message) {
+      return res.status(400).json({ error: 'Receiver and message are required' });
+    }
+
+    // Call helper function to send the message
+    const response = await sendMessageHelper(senderId, receiver, message, req.io);
+
+    // Respond with success message
+    return res.status(201).json({ message: 'Message sent successfully', response });
+  } catch (err) {
+    console.error('Error sending message:', err);
+    return res.status(500).json({ error: err.message || 'Failed to send message' });
+  }
+};
+
+const fetchChatList = async (req, res) => {
+  const { _id } = req.user;
+  
+  try {
+    const chatList = await fetchChatListHelper(_id);
+    res.status(200).json(chatList);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error fetching chat list' });
+  }
+};
+
+const readMessage = async (req, res) => {
+  try {
+    const { _id: userId } = req.user;
+    const { messageId } = req.body; // Extracting messageId from the request body
+    console.log(req.body);
+    
+    // Call the helper function to update the message status
+    const updatedMessage = await readMessageHelper(messageId, userId, req.io);
+    
+    if (!updatedMessage) {
+      return res.status(404).json({ message: 'Message not found' });
+    }
+
+    res.status(200).json({ message: 'Message marked as read', updatedMessage });
+  } catch (error) {
+    console.error('Error marking message as read:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
 export {
   userSignUp,
   verifyUser,
@@ -830,5 +917,10 @@ export {
   fetchHideUsers,
   fetchHidePosts,
   unHideContent,
-  resetPassword
+  resetPassword,
+  reportPost,
+  fetchChats,
+  sendMessage,
+  fetchChatList,
+  readMessage,
 };

@@ -5,12 +5,13 @@ import cors from 'cors';
 import connectDB from './config/database.js';
 import adminRoutes from './router/AdminRoute.js';
 import userRoutes from './router/UserRouter.js';
-import cookieParser from 'cookie-parser'; // Import cookie-parser using ES Modules
+import cookieParser from 'cookie-parser'; 
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import users from './services/usersNotfic.js';
 import { attachIo } from './Middlewares/attachIo.js';
 import { deliverUndeliveredNotifications } from './services/Notification.js';
+import deliverUndeliveredChatting from './services/chatting.js';
 
 config();
 
@@ -23,6 +24,7 @@ const io = new Server(httpServer, {
     methods: ['GET', 'POST'],
     credentials: true,
   },
+  pingTimeout: 100000, // Set global ping timeout (in milliseconds)
 });
 
 // Middleware
@@ -50,12 +52,21 @@ io.on('connection', (socket) => {
     users.set(userId, socket.id);
     console.error('User connected:', userId);
     deliverUndeliveredNotifications(userId, io);
+    // deliverUndeliveredChatting(userId, io);
 
   });
- 
+
 
   socket.on('disconnect', () => {
     console.error('User disconnected', socket.id);
+    for (const [userId, id] of users.entries()) {
+      if (id === socket.id) {
+        console.error('User disconnected:', userId);
+        // Remove the user from the map
+        users.delete(userId);
+        break; // Exit the loop once the user is found and removed
+      }
+    }
   });
 });
 // Correctly start the server using httpServer

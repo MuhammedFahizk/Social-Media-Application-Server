@@ -17,6 +17,25 @@ const commentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+const reportSchema = new mongoose.Schema(
+  {
+    reporter: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: true,
+    },
+    reason: {
+      type: String,
+      required: true,
+    },
+    resolved: {
+      type: Boolean,
+      default: false, // Indicates if the report has been resolved
+    },
+  },
+  { timestamps: true }
+);
+
 // Define the schema for posts
 const postSchema = new mongoose.Schema(
   {
@@ -55,12 +74,7 @@ const postSchema = new mongoose.Schema(
       },
     ],
     comments: [commentSchema], // Use the comment schema for comments
-    // savedPosts: [
-    //   { type: mongoose.Schema.Types.ObjectId, ref: 'Post',
-    //     default: [],
-        
-    //    },
-    // ],
+    reports : [reportSchema]
   },
   { timestamps: true } // Automatically add createdAt and updatedAt fields
 );

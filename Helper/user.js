@@ -15,6 +15,8 @@ import argon2 from 'argon2';
 import Posts from '../model/Posts.js';
 import users from '../services/usersNotfic.js';
 import Notification from '../model/Notification.js';
+import { Chat } from '../model/Chat.js';
+import { isNewSenderForReceiver } from '../services/chatting.js';
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const userValidateEmailHelper = async (user) => {
   try {
@@ -27,7 +29,6 @@ const userValidateEmailHelper = async (user) => {
       }
       throw new Error('Username already exists');
     }
-
 
     const otpSecret = 'JBSWY3DPEHPK3PXP';
     const { otp, expires } = TOTP.generate(otpSecret);
@@ -98,9 +99,14 @@ const userLoginHelper = async (user) => {
         if (existingUser.isBlocked) {
           reject(new Error('Your account is blocked'));
         }
-        const isPasswordValid = await argon2.verify(existingUser.password, user.password);
+        const isPasswordValid = await argon2.verify(
+          existingUser.password,
+          user.password
+        );
         if (isPasswordValid) {
-          await User.findByIdAndUpdate(existingUser._id, { lastActive: Date.now() });
+          await User.findByIdAndUpdate(existingUser._id, {
+            lastActive: Date.now(),
+          });
 
           resolve(existingUser);
         } else {
@@ -109,11 +115,10 @@ const userLoginHelper = async (user) => {
       })
       .catch((err) => {
         console.error('Database query failed', err); // Log the actual error for debugging
-        reject(new Error(`Database query failed: ${  err.message}`)); // Pass the actual error message
+        reject(new Error(`Database query failed: ${err.message}`)); // Pass the actual error message
       });
   });
 };
-
 
 const userGoogleLoginHelper = async (credential) => {
   // Directly use the credential as the ID token since it's the entire JWT string
@@ -141,12 +146,16 @@ const googleLoginUser = async (user) => {
   return new Promise((resolve, reject) => {
     const { email } = user;
     User.findOne({ email })
-      .then(async(existingUser) => {
+      .then(async (existingUser) => {
         if (existingUser) {
           if (existingUser.isBlocked) {
-            reject(new Error('Your account is blocked. Please contact support.'));
+            reject(
+              new Error('Your account is blocked. Please contact support.')
+            );
           } else {
-            await User.findByIdAndUpdate(existingUser._id, { lastActive: Date.now() });
+            await User.findByIdAndUpdate(existingUser._id, {
+              lastActive: Date.now(),
+            });
             resolve(existingUser);
           }
         } else {
@@ -154,11 +163,10 @@ const googleLoginUser = async (user) => {
         }
       })
       .catch((error) => {
-        reject(new Error(`Database query failed: ${  error.message}`));
+        reject(new Error(`Database query failed: ${error.message}`));
       });
   });
 };
-
 
 const logoutHelper = async (refreshToken) => {
   try {
@@ -175,60 +183,62 @@ const logoutHelper = async (refreshToken) => {
   }
 };
 
-const findSuggestion = async (id,) => {
+const findSuggestion = async (id) => {
   try {
-    const user = await User.findById(id).populate('following').populate('followers');
+    const user = await User.findById(id)
+      .populate('following')
+      .populate('followers');
     if (!user) {
       // Handle the case where user is not found
       return { users: [], user: null };
     }
-  
+
     // Ensure `following` is an array if it's null or undefined
     const following = user.following || [];
-    const followingIds = following.map(follow => follow._id);
-  
+    const followingIds = following.map((follow) => follow._id);
+
     // Find users followed by the users in the `following` list, excluding current user and already followed users
     let users = await User.aggregate([
       {
         $match: {
-          _id: { $ne: id }
-        }
+          _id: { $ne: id },
+        },
       },
       {
         $lookup: {
           from: 'users',
           localField: 'following',
           foreignField: '_id',
-          as: 'suggestedUsers'
-        }
+          as: 'suggestedUsers',
+        },
       },
       {
-        $unwind: '$suggestedUsers'
+        $unwind: '$suggestedUsers',
       },
       {
         $match: {
           'suggestedUsers._id': { $ne: id },
-          'suggestedUsers._id': { $nin: followingIds }
-        }
+          'suggestedUsers._id': { $nin: followingIds },
+        },
       },
       {
         $group: {
           _id: null,
-          suggestedUsers: { $addToSet: '$suggestedUsers' }
-        }
+          suggestedUsers: { $addToSet: '$suggestedUsers' },
+        },
       },
       {
         $project: {
           _id: 0,
-          suggestedUsers: 1
-        }
+          suggestedUsers: 1,
+        },
       },
       // {
       //   $skip: offset
       // },
       {
-        $limit: 10
-      }
+        $limit: 10,
+      },
     ]);
 
     users = users.length > 0 ? users[0].suggestedUsers : [];
@@ -239,12 +249,12 @@ const findSuggestion = async (id,) => {
         {
           $match: {
             _id: { $ne: id },
-            _id: { $nin: followingIds.concat(users.map(u => u._id)) }
-          }
+            _id: { $nin: followingIds.concat(users.map((u) => u._id)) },
+          },
         },
         {
-          $sample: { size: 10 - users.length }
-        }
+          $sample: { size: 10 - users.length },
+        },
       ]);
       users = users.concat(additionalUsers);
     }
@@ -296,14 +306,17 @@ const followingHelper = async (_id, userId, io) => {
       type: 'follow',
       message: `${follower.userName} started following you`,
       isRead: false,
-      delivered: delivered
+      delivered: delivered,
     });
 
     await notification.save();
 
     // Send real-time notification if user is online
     if (delivered) {
-      io.to(socketId).emit('newNotification', { notification, senderDetails: details });
+      io.to(socketId).emit('newNotification', {
+        notification,
+        senderDetails: details,
+      });
     } else {
       console.error(`User ${userId} not connected`);
     }
@@ -323,12 +336,15 @@ const unFollowingHelper = async (_id, userId) => {
     if (!follower || !following) {
       throw new Error('User not found');
     }
-    following.followers = following.followers.filter(followerId => followerId.toString() !== _id.toString());
-    follower.following = follower.following.filter(followingId => followingId.toString() !== userId.toString());
-
+    following.followers = following.followers.filter(
+      (followerId) => followerId.toString() !== _id.toString()
+    );
+    follower.following = follower.following.filter(
+      (followingId) => followingId.toString() !== userId.toString()
+    );
 
     await follower.save();
-    await following.save();     
+    await following.save();
     return { message: 'Un follow successful' };
   } catch (error) {
     console.error('Error in unFollowingHelper:', error);
@@ -349,22 +365,21 @@ const profileHelper = (id, _id) => {
         .populate('author')
         .populate({
           path: 'comments.author',
-          select: 'userName profilePicture'
+          select: 'userName profilePicture',
         });
       if (!user) throw new Error('User not found');
       if (!profile) throw new Error('Profile not found');
 
-      resolve({ user, profile, post  });
+      resolve({ user, profile, post });
     } catch (error) {
       reject(error);
     }
   });
 };
 
-const userProfileHelper = async(id) => {
+const userProfileHelper = async (id) => {
   return new Promise(async (resolve, reject) => {
     try {
-
       const profile = await User.findById(id)
         .populate('followers')
         .populate('following');
@@ -375,7 +390,7 @@ const userProfileHelper = async(id) => {
         .populate('author')
         .populate({
           path: 'comments.author',
-          select: 'userName profilePicture'
+          select: 'userName profilePicture',
         });
       if (!profile) throw new Error('User not found');
 
@@ -399,11 +414,11 @@ const searchHelper = async (id, value, item, offset) => {
             {
               $match: {
                 $or: [
-                  { userName: { $regex: value, $options: 'i' }},
-                  { email: { $regex: value, $options: 'i' } }
-                ]
-              }
-            }
+                  { userName: { $regex: value, $options: 'i' } },
+                  { email: { $regex: value, $options: 'i' } },
+                ],
+              },
+            },
           ];
 
           if (offset > 0) {
@@ -416,11 +431,11 @@ const searchHelper = async (id, value, item, offset) => {
           break;
 
         case 'blogs':
-          queryResult = await Posts.find({ 
-            $or:[
+          queryResult = await Posts.find({
+            $or: [
               { title: { $regex: value, $options: 'i' } },
-              {hashTags: { $regex: value, $options: 'i'}}
-            ]
+              { hashTags: { $regex: value, $options: 'i' } },
+            ],
           })
             .skip(offset)
             .limit(10)
@@ -429,14 +444,14 @@ const searchHelper = async (id, value, item, offset) => {
 
         case 'images':
           queryResult = await Posts.find({
-            hashTags: { $elemMatch: { $regex: value, $options: 'i' } }
+            hashTags: { $elemMatch: { $regex: value, $options: 'i' } },
           })
             .skip(offset)
             .limit(10)
             .populate('author')
             .populate({
               path: 'comments.author',
-              select: 'userName profilePicture'
+              select: 'userName profilePicture',
             });
           break;
 
@@ -451,16 +466,19 @@ const searchHelper = async (id, value, item, offset) => {
   });
 };
 
-
 const uploadProfileHelper = async (id, file) => {
   return new Promise(async (resolve, reject) => {
     try {
       const result = await cloudinary.uploader.upload(file.path, {
-        folder: 'Social Media'
+        folder: 'Social Media',
       });
-      const profile = await User.findByIdAndUpdate(id, {
-        profilePicture: result.secure_url
-      }, { new: true }); // Assuming you want the updated document
+      const profile = await User.findByIdAndUpdate(
+        id,
+        {
+          profilePicture: result.secure_url,
+        },
+        { new: true }
+      ); // Assuming you want the updated document
       resolve(profile);
     } catch (error) {
       reject(error);
@@ -477,7 +495,7 @@ const createPostHelper = async (data, content, id) => {
       author: id,
       content,
       hashTags, // Assign the extracted hashtags to the hashTags field
-      ...data
+      ...data,
     });
 
     // Save the post to the database
@@ -497,7 +515,7 @@ const createStoryHelper = async (data, content, id) => {
 
     // Find the user by ID
     const user = await User.findById(id);
-    
+
     if (!user) {
       throw new Error('User not found');
     }
@@ -516,11 +534,10 @@ const createStoryHelper = async (data, content, id) => {
 const fetchPostHelper = async (id) => {
   try {
     // Ensure this line is correctly implemented based on your database setup
-    const post = await Posts.findById(id).populate('author')
-      .populate({
-        path: 'comments.author',
-        select: 'userName profilePicture'
-      });
+    const post = await Posts.findById(id).populate('author').populate({
+      path: 'comments.author',
+      select: 'userName profilePicture',
+    });
     if (post) {
       post.comments.sort((a, b) => b.timestamps - a.timestamps);
     }
@@ -532,23 +549,19 @@ const fetchPostHelper = async (id) => {
 };
 const unLikePostHelper = (id, _id) => {
   return new Promise((resolve, reject) => {
-    Posts.updateOne(
-      { _id: id },
-      { $pull: { likes: _id } }
-    )
-      .then(result => {
+    Posts.updateOne({ _id: id }, { $pull: { likes: _id } })
+      .then((result) => {
         if (result.matchedCount === 0) {
           // No matching document found
           return reject(new Error('No matching post found to unlike'));
         }
         resolve(result);
       })
-      .catch(error => {
+      .catch((error) => {
         reject(error);
       });
   });
 };
-
 
 const likePostHelper = async (id, _id, io) => {
   try {
@@ -602,7 +615,10 @@ const likePostHelper = async (id, _id, io) => {
 
     // Send real-time notification if the author is online
     if (socketId && !result.author._id.equals(_id)) {
-      io.to(socketId).emit('newNotification', { notification, senderDetails: details });
+      io.to(socketId).emit('newNotification', {
+        notification,
+        senderDetails: details,
+      });
     }
 
     return result;
@@ -613,17 +629,16 @@ const likePostHelper = async (id, _id, io) => {
 
 const userCreateComment = async (postId, userId, commentContent) => {
   try {
-
     // Update the post by pushing a new comment object into the comments array
     const result = await Posts.findOneAndUpdate(
       { _id: postId },
       { $push: { comments: { author: userId, content: commentContent } } },
-      { new: true}
+      { new: true }
     )
       .populate('author')
       .populate({
         path: 'comments.author',
-        select: 'userName profilePicture'
+        select: 'userName profilePicture',
       });
 
     // Check if a document matched the query
@@ -652,7 +667,7 @@ const fetchPostsHelper = async (heading, offset, id) => {
       case 'Recent':
         postItems = await Posts.find({
           _id: { $nin: user.hiddenPosts || [] }, // Exclude hidden posts
-          author: { $nin: user.hiddenUsers || [] } // Exclude posts by hidden users
+          author: { $nin: user.hiddenUsers || [] }, // Exclude posts by hidden users
         })
           .sort({ createdAt: -1 })
           .skip(offset)
@@ -660,14 +675,14 @@ const fetchPostsHelper = async (heading, offset, id) => {
           .populate('author')
           .populate({
             path: 'comments.author',
-            select: 'userName profilePicture'
+            select: 'userName profilePicture',
           })
           .exec();
         break;
 
       case 'Friends':
         postItems = await Posts.find({
-          author: { $in: user.following || [] }
+          author: { $in: user.following || [] },
         })
           .sort({ createdAt: -1 })
           .skip(offset)
@@ -675,7 +690,7 @@ const fetchPostsHelper = async (heading, offset, id) => {
           .populate('author')
           .populate({
             path: 'comments.author',
-            select: 'userName profilePicture'
+            select: 'userName profilePicture',
           })
           .exec();
         break;
@@ -685,33 +700,33 @@ const fetchPostsHelper = async (heading, offset, id) => {
           {
             $match: {
               _id: { $nin: user.hiddenPosts || [] }, // Exclude hidden posts
-              author: { $nin: user.hiddenUsers || [] } // Exclude posts by hidden users
-            }
+              author: { $nin: user.hiddenUsers || [] }, // Exclude posts by hidden users
+            },
           },
           {
             $lookup: {
               from: 'users',
               localField: 'author',
               foreignField: '_id',
-              as: 'author'
-            }
+              as: 'author',
+            },
           },
           { $unwind: '$author' },
           {
             $addFields: {
               totalLikes: { $size: { $ifNull: ['$likes', []] } },
-              totalComments: { $size: { $ifNull: ['$comments', []] } }
-            }
+              totalComments: { $size: { $ifNull: ['$comments', []] } },
+            },
           },
           {
             $addFields: {
               engagementScore: {
                 $add: [
                   { $multiply: ['$totalLikes', 1] },
-                  { $multiply: ['$totalComments', 3] }
-                ]
-              }
-            }
+                  { $multiply: ['$totalComments', 3] },
+                ],
+              },
+            },
           },
           {
             $addFields: {
@@ -719,10 +734,10 @@ const fetchPostsHelper = async (heading, offset, id) => {
                 $cond: {
                   if: { $isArray: '$comments.author' },
                   then: '$comments.author',
-                  else: []
-                }
-              }
-            }
+                  else: [],
+                },
+              },
+            },
           },
           {
             $lookup: {
@@ -730,10 +745,10 @@ const fetchPostsHelper = async (heading, offset, id) => {
               let: { commentAuthors: '$commentsAuthorArray' },
               pipeline: [
                 { $match: { $expr: { $in: ['$_id', '$$commentAuthors'] } } },
-                { $project: { userName: 1, profilePicture: 1 } }
+                { $project: { userName: 1, profilePicture: 1 } },
               ],
-              as: 'commentAuthors'
-            }
+              as: 'commentAuthors',
+            },
           },
           {
             $addFields: {
@@ -748,17 +763,17 @@ const fetchPostsHelper = async (heading, offset, id) => {
                         {
                           $filter: {
                             input: '$commentAuthors',
-                            cond: { $eq: ['$$this._id', '$$comment.author'] }
-                          }
+                            cond: { $eq: ['$$this._id', '$$comment.author'] },
+                          },
                         },
-                        0
-                      ]
+                        0,
+                      ],
                     },
-                    createdAt: '$$comment.createdAt'
-                  }
-                }
-              }
-            }
+                    createdAt: '$$comment.createdAt',
+                  },
+                },
+              },
+            },
           },
           {
             $group: {
@@ -774,17 +789,17 @@ const fetchPostsHelper = async (heading, offset, id) => {
               totalLikes: { $first: '$totalLikes' },
               totalComments: { $first: '$totalComments' },
               engagementScore: { $first: '$engagementScore' },
-              createdAt: { $first: '$createdAt' }
-            }
+              createdAt: { $first: '$createdAt' },
+            },
           },
           {
             $sort: {
               engagementScore: -1,
-              createdAt: -1
-            }
+              createdAt: -1,
+            },
           },
           { $skip: offset },
-          { $limit: 5 }
+          { $limit: 5 },
         ]);
         break;
 
@@ -799,12 +814,11 @@ const fetchPostsHelper = async (heading, offset, id) => {
   }
 };
 
-
 const deletePostHelper = async (id, _id) => {
   try {
     const post = await Posts.findById(id);
     if (!post) {
-      throw {  error: 'Post not found' };
+      throw { error: 'Post not found' };
     }
 
     if (post.author.toString() !== _id) {
@@ -814,30 +828,30 @@ const deletePostHelper = async (id, _id) => {
     // await deleteImageCloudinary(post.imageUrl);
     await Posts.findByIdAndDelete(id)
       .then((res) => {
-        return { success: 'Post deleted successfully',res };
+        return { success: 'Post deleted successfully', res };
       })
       .catch((err) => {
         console.error('Error deleting post:', err);
         return { error: 'Error deleting post' };
       });
   } catch (error) {
-    return { error: 'An error occurred while deleting the post',error };
+    return { error: 'An error occurred while deleting the post', error };
   }
 };
 
-const getFollowersHelper = async (userId, offset = 0,query) => {
+const getFollowersHelper = async (userId, offset = 0, query) => {
   try {
     const user = await User.findById(userId).populate({
-
       path: 'followers',
-      match: query.trim() === '' ? {} : {
-        userName: { $regex: query, $options: 'i' }
-      },
+      match:
+        query.trim() === '' ? {} : {
+          userName: { $regex: query, $options: 'i' },
+        },
       options: {
         skip: Number(offset),
         limit: 10,
-        select: 'userName profilePicture'
-      }
+        select: 'userName profilePicture',
+      },
     });
 
     if (!user) {
@@ -851,17 +865,18 @@ const getFollowersHelper = async (userId, offset = 0,query) => {
           from: 'users',
           localField: 'followers',
           foreignField: '_id',
-          as: 'followersDetails'
-        }
+          as: 'followersDetails',
+        },
       },
       { $unwind: '$followersDetails' },
       {
-        $match: query.trim() === '' ? {} : {
-          'followersDetails.userName': { $regex: query, $options: 'i' }
-        }
+        $match:
+          query.trim() === '' ? {} : {
+            'followersDetails.userName': { $regex: query, $options: 'i' },
+          },
       },
-      { $count: 'totalCount' }
-    ]).then(result => (result.length > 0 ? result[0].totalCount : 0));
+      { $count: 'totalCount' },
+    ]).then((result) => (result.length > 0 ? result[0].totalCount : 0));
 
     return { connections: user.followers, totalCount };
   } catch (error) {
@@ -872,16 +887,16 @@ const getFollowersHelper = async (userId, offset = 0,query) => {
 const getFollowingsHelper = async (userId, offset = 0, query) => {
   try {
     const user = await User.findById(userId).populate({
-
       path: 'following',
-      match: query.trim() === '' ? {} : {
-        userName: { $regex: query, $options: 'i' }
-      },
+      match:
+        query.trim() === '' ? {} : {
+          userName: { $regex: query, $options: 'i' },
+        },
       options: {
         skip: Number(offset),
         limit: 10,
-        select: 'userName profilePicture'
-      }
+        select: 'userName profilePicture',
+      },
     });
 
     if (!user) {
@@ -895,36 +910,38 @@ const getFollowingsHelper = async (userId, offset = 0, query) => {
           from: 'users',
           localField: 'following',
           foreignField: '_id',
-          as: 'followingDetails'
-        }
+          as: 'followingDetails',
+        },
       },
       { $unwind: '$followingDetails' },
       {
-        $match: query.trim() === '' ? {} : {
-          'followingDetails.userName': { $regex: query, $options: 'i' }
-        }
+        $match:
+          query.trim() === '' ? {} : {
+            'followingDetails.userName': { $regex: query, $options: 'i' },
+          },
       },
-      { $count: 'totalCount' }
-    ]).then(result => (result.length > 0 ? result[0].totalCount : 0));
+      { $count: 'totalCount' },
+    ]).then((result) => (result.length > 0 ? result[0].totalCount : 0));
 
-    return { connections: user.following, totalCount};
+    return { connections: user.following, totalCount };
   } catch (error) {
     console.error(error);
     throw new Error(error.message);
   }
 };
 
-const deleteCommentHelper = (commentId, postId,) => {
+const deleteCommentHelper = (commentId, postId) => {
   return new Promise(async (resolve, reject) => {
     try {
       const updatedPost = await Posts.findOneAndUpdate(
         { _id: postId },
         { $pull: { comments: { _id: commentId } } },
         { new: true }
-      ).populate('author')
+      )
+        .populate('author')
         .populate({
           path: 'comments.author',
-          select: 'userName profilePicture'
+          select: 'userName profilePicture',
         });
 
       if (!updatedPost) {
@@ -946,7 +963,10 @@ const getFreshStoriesHelper = async (userId) => {
     // Define a helper function to filter stories for freshness
     const filterFreshStories = (stories) => {
       const twentyFourHoursInMilliseconds = 1000 * 60 * 60 * 24;
-      return stories.filter(story => story.createdAt.getTime() > Date.now() - twentyFourHoursInMilliseconds);
+      return stories.filter(
+        (story) =>
+          story.createdAt.getTime() > Date.now() - twentyFourHoursInMilliseconds
+      );
     };
 
     // Perform the aggregation to get users who are either followed by the current user, are following the current user, or the current user themselves
@@ -955,11 +975,11 @@ const getFreshStoriesHelper = async (userId) => {
       {
         $match: {
           $or: [
-            { 'followers': new ObjectId(currentUser._id) },
-            { 'following': new ObjectId(currentUser._id) },
-            { '_id': new ObjectId(currentUser._id) }
-          ]
-        }
+            { followers: new ObjectId(currentUser._id) },
+            { following: new ObjectId(currentUser._id) },
+            { _id: new ObjectId(currentUser._id) },
+          ],
+        },
       },
       { $sort: { 'story.createdAt': -1 } },
       {
@@ -967,8 +987,8 @@ const getFreshStoriesHelper = async (userId) => {
           from: 'users', // The collection name in MongoDB
           localField: 'story.views.userId',
           foreignField: '_id',
-          as: 'story.views.userDetails'
-        }
+          as: 'story.views.userDetails',
+        },
       },
       {
         $group: {
@@ -981,15 +1001,17 @@ const getFreshStoriesHelper = async (userId) => {
           followers: { $first: '$followers' },
           following: { $first: '$following' },
           story: { $push: '$story' },
-        }
-      }
+        },
+      },
     ]);
 
     // Filter for fresh stories and remove users with no fresh stories
-    const freshStoryUsers = users.map(user => ({
-      ...user,
-      story: filterFreshStories(user.story)
-    })).filter(user => user.story.length > 0);
+    const freshStoryUsers = users
+      .map((user) => ({
+        ...user,
+        story: filterFreshStories(user.story),
+      }))
+      .filter((user) => user.story.length > 0);
 
     return freshStoryUsers;
   } catch (error) {
@@ -1013,14 +1035,14 @@ const incrementViewerCountHelper = async (userId, storyId, authorId) => {
     }
 
     // Check if the user has already viewed the story
-    if (!story.views.some(view => view.userId.equals(userId))) {
+    if (!story.views.some((view) => view.userId.equals(userId))) {
       // Add the user to the list of viewers
       story.views.push({ userId, viewedAt: new Date() });
       await user.save(); // Save the updated user document
     }
 
     // Return the count of viewers for the story
-    return {  story };
+    return { story };
   } catch (error) {
     console.error('Error in incrementViewerCountHelper:', error);
     return { error: 'Server error' };
@@ -1033,27 +1055,25 @@ const fetchProfileStoresHelper = (userId) => {
       const user = await User.aggregate([
         { $match: { _id: new ObjectId(userId) } },
         { $unwind: '$story' },
-    
+
         {
           $group: {
             _id: {
-              $dateToString: { format: '%Y-%m-%d', date: '$story.createdAt' }
+              $dateToString: { format: '%Y-%m-%d', date: '$story.createdAt' },
             },
-            story: { $push: '$story' }
-          }
+            story: { $push: '$story' },
+          },
         },
         {
           $project: {
             _id: 0,
             date: '$_id',
-            story: 1
-          }
+            story: 1,
+          },
         },
-        
-        // Sort by date if needed
-        { $sort: { date: -1 } }
 
-        
+        // Sort by date if needed
+        { $sort: { date: -1 } },
       ]);
       resolve(user);
     } catch (error) {
@@ -1069,7 +1089,7 @@ const editProfileHelper = async (userId, data) => {
       { $set: data },
       { new: true, runValidators: true } // Return the updated document and run validation
     );
-    
+
     if (!user) {
       throw new Error('User not found');
     }
@@ -1080,13 +1100,12 @@ const editProfileHelper = async (userId, data) => {
   }
 };
 
-
 const updatePostHelper = async (postId, data, _id) => {
   try {
     // Log the incoming data for debugging
 
     const hashTags = data.hashTag?.match(/#[\w]+/g) || [];
-    
+
     // Find the existing post by ID
     const existingPost = await Posts.findById(postId);
     if (!existingPost) {
@@ -1099,17 +1118,23 @@ const updatePostHelper = async (postId, data, _id) => {
     }
 
     // Update the post fields
-    existingPost.content = data.content !== undefined ? data.content : existingPost.content;
-    existingPost.hashTags = hashTags.length > 0 ? hashTags : existingPost.hashTags;
-    existingPost.title = data.title !== undefined ? data.title : existingPost.title;
+    existingPost.content =
+      data.content !== undefined ? data.content : existingPost.content;
+    existingPost.hashTags =
+      hashTags.length > 0 ? hashTags : existingPost.hashTags;
+    existingPost.title =
+      data.title !== undefined ? data.title : existingPost.title;
     existingPost.body = data.body !== undefined ? data.body : existingPost.body;
-    existingPost.likes = data.likes !== undefined ? data.likes : existingPost.likes;
-    existingPost.comments = data.comments !== undefined ? data.comments : existingPost.comments;
-    existingPost.location = data.location !== undefined ? data.location : existingPost.location;
+    existingPost.likes =
+      data.likes !== undefined ? data.likes : existingPost.likes;
+    existingPost.comments =
+      data.comments !== undefined ? data.comments : existingPost.comments;
+    existingPost.location =
+      data.location !== undefined ? data.location : existingPost.location;
 
     // Save the updated post to the database
     const updatedPost = await existingPost.save();
-    
+
     return updatedPost;
   } catch (error) {
     console.error('Error updating post:', error.message);
@@ -1119,7 +1144,6 @@ const updatePostHelper = async (postId, data, _id) => {
 
 const findSuggestionHelper = async (currentUserId, offset = 0) => {
   try {
-       
     const suggestions = await User.aggregate([
       {
         $match: { _id: new ObjectId(currentUserId) },
@@ -1178,9 +1202,8 @@ const findSuggestionHelper = async (currentUserId, offset = 0) => {
         $limit: 6, // Number of suggestions per page
       },
     ]);
-    
+
     return suggestions;
-    
   } catch (error) {
     throw new Error(`Failed to find user suggestions: ${error.message}`);
   }
@@ -1191,39 +1214,35 @@ const fetchUserNotificationsHelper = async (userId) => {
     const notifications = await Notification.aggregate([
       {
         $match: {
-          $and: [
-            { userId: new ObjectId(userId),},
-            {delivered: true},
-          ]
-
-        }
+          $and: [{ userId: new ObjectId(userId) }, { delivered: true }],
+        },
       },
       {
         $sort: {
           createdAt: -1, // Sort by creation date, most recent first
-        }
+        },
       },
       {
         $lookup: {
           from: 'users', // The collection name for users
           localField: 'senderId', // The field in Notification that references the sender
           foreignField: '_id', // The field in User that matches the senderId
-          as: 'senderDetails' // The name of the array where the sender data will be stored
-        }
+          as: 'senderDetails', // The name of the array where the sender data will be stored
+        },
       },
       {
-        $unwind: '$senderDetails' // Deconstruct the senderDetails array to merge with the root document
+        $unwind: '$senderDetails', // Deconstruct the senderDetails array to merge with the root document
       },
       {
-        $lookup:{
+        $lookup: {
           from: 'posts',
           localField: 'postId',
           foreignField: '_id',
-          as: 'postDetails'
-        }
+          as: 'postDetails',
+        },
       },
       {
-        $unwind: '$postDetails'
+        $unwind: '$postDetails',
       },
       {
         $project: {
@@ -1240,10 +1259,10 @@ const fetchUserNotificationsHelper = async (userId) => {
           senderDetails: {
             userName: '$senderDetails.userName',
             profilePicture: '$senderDetails.profilePicture',
-            postImage: '$postDetails.imageUrl'
-          }
-        }
-      }
+            postImage: '$postDetails.imageUrl',
+          },
+        },
+      },
     ]);
 
     return notifications;
@@ -1287,14 +1306,12 @@ const hideUserHelper = async (userId, currentUserId) => {
       throw new Error('User not found');
     }
 
-    console.log(`Hiding user with ID: ${userId}`);
     return { message: 'User hidden successfully' };
   } catch (error) {
     console.error('Error hiding user:', error);
     throw new Error('Failed to hide user');
   }
 };
-
 
 const fetchHideUsersHelper = async (userId) => {
   try {
@@ -1322,8 +1339,8 @@ const fetchHidePostsHelper = async (userId) => {
         select: 'title content imageUrl author', // Ensure this matches your Post schema
         populate: {
           path: 'author', // Populate the author field if it's a reference
-          select: 'userName' // Select only the fields you need
-        }
+          select: 'userName', // Select only the fields you need
+        },
       })
       .exec();
 
@@ -1378,7 +1395,6 @@ const unHideUserHelper = async (userIdToUnhide, currentUserId) => {
   }
 };
 
-
 const resetPasswordHelper = async (userId, currentPassword, newPassword) => {
   try {
     const user = await User.findById(userId);
@@ -1399,6 +1415,257 @@ const resetPasswordHelper = async (userId, currentPassword, newPassword) => {
     throw error;
   }
 };
+
+const reportPostHelper = (data, userId) => {
+  return new Promise(async (resolve, reject) => {
+    const post = await Posts.findById(data.postId);
+    if (!post) {
+      reject(new Error('Post not found'));
+    }
+
+    post.reports.push({
+      reporter: userId,
+      reason: data.reason,
+    });
+    await post.save();
+    resolve('success');
+  });
+};
+
+const fetchUserHelper = async (userId) => {
+  try {
+    return await User.findById(userId);
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    throw error; 
+  }
+};
+
+const fetchChatsHelper = async (userId1, userId2, io) => {
+  try {
+    const unreadMessages = await Chat.find({
+      sender: userId1, 
+      receiver: userId2,
+      status: { $ne: 'read' }
+    });
+
+    if (unreadMessages.length === 0) {
+      console.log('No unread messages to update');
+    } else {
+      const updateResult = await Chat.updateMany(
+        {
+          sender: userId1,
+          receiver: userId2,
+          status: { $ne: 'read' }
+        },
+        { $set: { status: 'read' } }
+      );
+
+      console.log(`Marked ${updateResult.modifiedCount} messages as 'read'`);
+
+      const socketId = users.get(userId1);
+      if (socketId) {
+        unreadMessages.forEach((message) => {
+          message.status = 'read';
+          io.timeout(5000).to(socketId).emit('readMessage', message); // Emit the message update to the socket
+        });
+        console.log(`Emitted 'readMessage' event for ${unreadMessages.length} messages`);
+      } else {
+        console.warn(`No socket connection for user ${userId1}`);
+      }
+    }
+
+    // Step 4: Fetch all chats between userId1 and userId2, sorted by timestamp
+    const chats = await Chat.find({
+      $or: [
+        { sender: userId1, receiver: userId2 },
+        { sender: userId2, receiver: userId1 }
+      ]
+    }).sort({ timestamp: 1 });
+
+    return chats; // Return the full chat history between the users
+  } catch (error) {
+    console.error('Error fetching chats:', error);
+    throw new Error('Failed to fetch chats');
+  }
+};
+
+const readMessageHelper = async (messageId, userId, io) => {
+  try {
+    // Ensure messageId and userId are valid
+    if (!messageId || !userId) {
+      throw new Error('Invalid messageId or userId');
+    }
+
+    // Update the message status to 'read'
+    const updatedMessage = await Chat.findByIdAndUpdate(
+      messageId,
+      { status: 'read' },
+      { new: true } // Return the updated document
+    );
+
+    // If no message is found, throw an error
+    if (!updatedMessage) {
+      throw new Error(`Message with ID ${messageId} not found`);
+    }
+
+    // Log the entire updated message for debugging
+    console.log('Updated message:', updatedMessage);
+
+    // Ensure the sender field exists
+    if (!updatedMessage.sender) {
+      throw new Error('Sender field is missing in the message');
+    }
+
+    // Notify the user via socket
+    const socketId = users.get(updatedMessage.sender.toString()); // Retrieve the user's socket ID
+    console.log('Sender ID:', updatedMessage.sender, socketId);
+
+    if (socketId) {
+      io.timeout(5000)
+        .to(socketId)
+        .emit('readMessage', updatedMessage); // Emit 'readMessage' to the user's socket
+    } else {
+      console.warn(`No socket connection for sender ${updatedMessage.sender}`);
+    }
+
+    return updatedMessage;
+  } catch (error) {
+    console.error('Error updating message status:', error.message);
+    throw new Error('Failed to update message status');
+  }
+};
+
+
+const sendMessageHelper = async (senderId, receiverId, messageContent, io) => {
+  try {
+    const isNew = await isNewSenderForReceiver(senderId, receiverId);
+    const newChat = new Chat({
+      sender: senderId,
+      receiver: receiverId,
+      content: messageContent,
+      status: 'sent', // Default status
+    });
+    const savedChat = await newChat.save();
+
+    const socketId = users.get(receiverId);
+    if (socketId) {
+      try {
+        io.timeout(5000)
+          .to(socketId)
+          .emit(
+            'receiveMessage',
+            {
+              sender: senderId,
+              receiver: receiverId,
+              content: messageContent,
+              timestamp: Date.now(),
+              isRead: false,
+              _id: savedChat._id,
+
+            },
+            (error, callback) => {
+              if (error) {
+                console.error('Error sending message:', error);
+              } else {
+                console.log(callback);
+                
+                savedChat.status = callback.status|| 'delivered';
+                savedChat.save();
+                const senderSocketId = users.get(senderId); // Get sender's socket ID
+                if (senderSocketId) {
+                  io.to(senderSocketId).emit('messageDelivered', {
+                    senderId: senderId,
+                    receiverId: receiverId,
+                    messageId: savedChat._id,
+                    _id: savedChat._id,
+                    status: 'delivered',
+                  });
+                }
+              }
+            }
+          );
+
+        io.timeout(5000).to(socketId).emit('newSender', isNew);
+      } catch (error) {
+        console.error('Error emitting message:', error);
+      }
+    } else {
+      console.log('Socket ID not found for receiver:', receiverId);
+    }
+
+    console.error(users, socketId);
+    // Save the new chat message to the database
+    return savedChat;
+  } catch (error) {
+    console.error('Error in sendMessageHelper:', error);
+    throw new Error('Failed to send message');
+  }
+};
+
+const fetchChatListHelper = async (id) => {
+  try {
+    let friends = await Chat.aggregate([
+      {
+        $match: {
+          $or: [{ sender: new ObjectId(id) }, { receiver: new ObjectId(id) }],
+        },
+      },
+      {
+        $sort: { timestamp: -1 },
+      },
+      {
+        $group: {
+          _id: {
+            $cond: [
+              { $eq: ['$sender', new ObjectId(id)] },
+              '$receiver',
+              '$sender',
+            ],
+          },
+        },
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'friendInfo',
+        },
+      },
+      {
+        $unwind: '$friendInfo',
+      },
+      {
+        $project: {
+          _id: 0,
+          friendInfo: 1,
+          latestChat: 1,
+        },
+      },
+      {
+        $sort: { 'latestChat.timestamp': -1 },
+      },
+    ]);
+
+    // If no chat list is found, fetch 10 random users
+   
+
+    // Attach online status from users Map
+    const result = friends.map(({ friendInfo, latestChat }) => ({
+      ...friendInfo,
+      latestChat,
+      online: users.has(friendInfo?._id.toString()), 
+    }));
+
+    return result;
+  } catch (error) {
+    console.error('Error fetching chat list:', error);
+    throw error;
+  }
+};
+
+
 export {
   userLoginHelper,
   logoutHelper,
@@ -1438,4 +1705,10 @@ export {
   unHidePostHelper,
   unHideUserHelper,
   resetPasswordHelper,
+  reportPostHelper,
+  fetchUserHelper,
+  fetchChatsHelper,
+  sendMessageHelper,
+  fetchChatListHelper,
+  readMessageHelper,
 };

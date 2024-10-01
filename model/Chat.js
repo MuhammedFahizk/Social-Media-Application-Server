@@ -1,18 +1,26 @@
+import mongoose from 'mongoose';
+const { Schema, model } = mongoose;  // Ensure you destructure both Schema and model
 
-import mongoose, { model } from 'mongoose';
-const { Schema } = mongoose;
 const chatSchema = new Schema({
-  _id: { type: mongoose.Schema.Types.ObjectId, required: true },
-  sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // User who sent the message
-  receiver: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }, // User who receives the message
-  content: { type: String, required: true }, // The actual message content
-  timestamp: { type: Date, default: Date.now, required: true }, // Time when the message was sent
-  isRead: { type: Boolean, default: false }, // Status of whether the message has been read
-  messageType: { type: String, enum: ['text', 'image',], default: 'text' }, // Type of message (text, image, etc.)
-  mediaUrl: { type: String }, // URL to media file if the messageType is not 'text'
-  chatRoom: { type: mongoose.Schema.Types.ObjectId, ref: 'ChatRoom' } // Optional field if messages are part of a chat room
+  sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  receiver: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  content: { type: String, required: true },
+  timestamp: { type: Date, default: Date.now, required: true },
+  isRead: { type: Boolean, default: false },
+  messageType: { type: String, enum: ['text', 'image'], default: 'text' },
+  mediaUrl: { type: String },
+  chatRoom: { type: mongoose.Schema.Types.ObjectId, ref: 'ChatRoom' },
+  status: { 
+    type: String, 
+    enum: ['sent', 'delivered', 'read'], 
+    default: 'sent' 
+  }
 });
 
-const Chat = model(chatSchema);
+// Creating an index for optimized queries
+chatSchema.index({ sender: 1, receiver: 1, timestamp: 1 });
+
+// Correctly defining and exporting the Chat model
+const Chat = model('Chat', chatSchema);  // Make sure to provide the model name 'Chat'
+
 export { Chat };
-  
