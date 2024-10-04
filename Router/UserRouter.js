@@ -43,7 +43,10 @@ import {
   fetchChats,
   sendMessage,
   fetchChatList,
-  readMessage
+  readMessage,
+  clearChat,
+  deleteForMe,
+  deleteForEveryone
 } from '../controller/User.js';
 
 import { userAuthentication, userProtectedRoutes } from '../middlewares/userAuthentication.js';
@@ -59,7 +62,7 @@ router.post('/otpValidation', otpValidation);
 router.post('/generateAccessToken', generateAccessToken);
 
 // Protected routes
-router.use(userProtectedRoutes);
+router.use(userAuthentication);
 
 router.get('/homePage', homePage);
 router.post('/verifyUser',  verifyUser);
@@ -118,7 +121,15 @@ router.post('/report-post', reportPost);
 
 // chatting related
 router.get('/chats/:userId',fetchChats);
+router.get('/friends',fetchChatList);
+
 router.post('/chats/:receiver/messages', sendMessage);
 router.post('/chats/read', readMessage);
-router.get('/friends',fetchChatList);
+
+router.delete('/clearChat', clearChat);
+router.delete('/deleteForMe',deleteForMe);
+router.delete('/deleteForEveryone',deleteForEveryone)
+
+
+
 export default router;

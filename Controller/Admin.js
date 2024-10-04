@@ -10,6 +10,7 @@ import {
   fetchPostHelper,
   fetchDashBoardHelper,
   sendNotificationHelper,
+  logoutHelper,
 } from '../helper/admin.js';
 import {
   generateAdminAccessToken,
@@ -51,6 +52,27 @@ const adminLogin = async (req, res) => {
       res.status(500).json({ error: true, message: err.message });
     }
   }
+};
+
+const logOutUser = (req, res) => {
+  const { refreshToken } = req.cookies;
+  if (!refreshToken) return res
+    .status(401)
+    .json({ error: true, message: 'User not authenticated ' });
+  logoutHelper(refreshToken)
+    .then((response) => {
+      res.clearCookie('accessToken');
+      res.clearCookie('refreshToken');
+      res.status(200).json({
+        error: false,
+        message: 'User logged out successfully, ',
+        response,
+      });
+    })
+    .catch((err) => {
+      console.error(err);
+      res.status(400).json({ error: true, message: err.message });
+    });
 };
 
 const generateAccessToken = async (req, res) => {
@@ -254,5 +276,6 @@ export {
   fetchPost,
   fetchDashBoard,
   //Notification
-  sendNotification
+  sendNotification,
+  logOutUser,
 };

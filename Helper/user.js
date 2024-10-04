@@ -1475,15 +1475,15 @@ const fetchChatsHelper = async (userId1, userId2, io) => {
       }
     }
 
-    // Step 4: Fetch all chats between userId1 and userId2, sorted by timestamp
     const chats = await Chat.find({
       $or: [
-        { sender: userId1, receiver: userId2 },
-        { sender: userId2, receiver: userId1 }
+        { sender: userId1, receiver: userId2, isDeletedByReceiver: { $ne: true } },
+        { sender: userId2, receiver: userId1, isDeletedBySender: { $ne: true } }
       ]
     }).sort({ timestamp: 1 });
+    
 
-    return chats; // Return the full chat history between the users
+    return chats;
   } catch (error) {
     console.error('Error fetching chats:', error);
     throw new Error('Failed to fetch chats');
@@ -1570,7 +1570,7 @@ const sendMessageHelper = async (senderId, receiverId, messageContent, io) => {
               } else {
                 console.log(callback);
                 
-                savedChat.status = callback.status|| 'delivered';
+                savedChat.status = callback.status || 'delivered';
                 savedChat.save();
                 const senderSocketId = users.get(senderId); // Get sender's socket ID
                 if (senderSocketId) {
@@ -1605,7 +1605,7 @@ const sendMessageHelper = async (senderId, receiverId, messageContent, io) => {
 
 const fetchChatListHelper = async (id) => {
   try {
-    let friends = await Chat.aggregate([
+    const friends = await Chat.aggregate([
       {
         $match: {
           $or: [{ sender: new ObjectId(id) }, { receiver: new ObjectId(id) }],
@@ -1655,7 +1655,6 @@ const fetchChatListHelper = async (id) => {
     const result = friends.map(({ friendInfo, latestChat }) => ({
       ...friendInfo,
       latestChat,
-      online: users.has(friendInfo?._id.toString()), 
     }));
 
     return result;
@@ -1665,6 +1664,73 @@ const fetchChatListHelper = async (id) => {
   }
 };
 
+const clearChatHelper = async (userId, friendId) => {
+  try {
+    const chatsSent = await Chat.updateMany(
+      { sender: userId, receiver: friendId },
+      { $set: { isDeletedBySender: true } }
+    );
+
+    // Update the chats where the current user is the receiver
+    const chatsReceived = await Chat.updateMany(
+      { sender: friendId, receiver: userId },
+      { $set: { isDeletedByReceiver: true } }
+    );
+
+    
+    return true;  // Return the result as a promise
+  } catch (error) {
+    console.error('Error fetching chats:', error);
+    throw error;  // In case of error, reject the promise by throwing an error
+  }
+};
+
+const deleteForMeHelper = async (userId, messageId) => {
+  try {
+    const message = await Chat.findById(messageId);
+    
+    if (!message) {
+      throw new Error('Message not found');
+    }
+    
+    if (message.sender.toString() === userId) {
+      message.isDeletedBySender = true;
+    } else if (message.receiver.toString() === userId) {
+      message.isDeletedByReceiver = true;
+    } else {
+      throw new Error('User is not authorized to delete this message');
+    }
+    
+    await message.save();
+    
+    return { success: true, message: 'Message deleted successfully', updatedMessage: message };
+  } catch (error) {
+    console.error('Error deleting message:', error);
+    throw new Error('Failed to delete message');
+  }
+};
+
+
+const deleteForEveryoneHelper = async (userId, messageId) => {
+  try {
+    const message = await Chat.findById(messageId);
+
+    if (!message) {
+      throw new Error('Message not found');
+    }
+
+    if (message.sender.toString() !== userId) {
+      throw new Error('User is not authorized to delete this message');
+    }
+
+    await Chat.findByIdAndDelete(messageId);
+
+    return { success: true, message: 'Message deleted for everyone successfully' };
+  } catch (error) {
+    console.error('Error deleting message for everyone:', error);
+    throw new Error('Failed to delete message for everyone');
+  }
+};
 
 export {
   userLoginHelper,
@@ -1711,4 +1777,8 @@ export {
   sendMessageHelper,
   fetchChatListHelper,
   readMessageHelper,
+  clearChatHelper,
+  deleteForMeHelper,
+  deleteForEveryoneHelper,
 };
+

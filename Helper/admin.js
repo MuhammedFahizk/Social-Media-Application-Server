@@ -31,6 +31,23 @@ const adminLoginHelper = (loginData) =>
       });
   });
 
+const logoutHelper = async (refreshToken) => {
+  try {
+    console.log(refreshToken);
+    
+    const user = await Admin.findOne({ token: refreshToken });
+    if (user) {
+      user.token = null;
+      await user.save();
+      return user;
+    } else {
+      throw new Error('User not found');
+    }
+  } catch (error) {
+    console.log('error', error);
+    throw new Error(error.message);
+  }
+};
 const adminGoogleLoginHelper = async (credential) => {
   // Directly use the credential as the ID token since it's the entire JWT string
   const idToken = credential; // No need to decode or extract further
@@ -393,6 +410,6 @@ export {
   fetchPostsHelper,
   fetchPostHelper,
   fetchDashBoardHelper,
-
+  logoutHelper,
   sendNotificationHelper,
 };

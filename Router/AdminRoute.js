@@ -12,12 +12,15 @@ import {
   fetchPost,
   fetchDashBoard,
   sendNotification,
+  logOutUser,
 } from '../controller/Admin.js';
 import { adminAuthentication } from '../Middlewares/adminAuthentication.js';
 const router = Router();
 
 // Define your routes
 router.post('/login', adminLogin);
+router.get('/logOut', logOutUser);
+
 router.post('/generateAccessToken', generateAccessToken);
 router.post('/loginWithGoogle', loginWithGoogle);
 router.post('/verifyAdmin',adminAuthentication, verifyAdmin);

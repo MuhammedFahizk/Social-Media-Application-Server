@@ -47,6 +47,9 @@ import {
   sendMessageHelper,
   fetchChatListHelper,
   readMessageHelper,
+  clearChatHelper,
+  deleteForMeHelper,
+  deleteForEveryoneHelper,
 } from '../helper/user.js';
 import { User } from '../model/User.js';
 import { deleteImageCloudinary } from '../services/deleteImageCloudinary.js';
@@ -97,71 +100,7 @@ const userSignUp = async (req, res) => {
 };
 
 const verifyUser = async (req, res) => {
-  const { accessToken, refreshToken } = req.cookies;
-
-  try {
-    if (!refreshToken) {
-      return res.status(401).json({
-        error: {
-          code: 'MISSING_REFRESH_TOKEN',
-          message: 'Refresh token is required.',
-        }
-      });
-    }
-
-    const user = await User.findOne({ token: refreshToken });
-    if (!user) {
-      return res.status(401).json({
-        error: {
-          code: 'INVALID_REFRESH_TOKEN',
-          message: 'The refresh token is invalid.',
-        }
-      });
-    }
-
-    if (user.isBlocked) {
-      return res.status(403).json({
-        error: {
-          code: 'USER_BLOCKED',
-          message: 'The user account is blocked and cannot perform this action.',
-          details: 'Please contact support for further assistance.',
-        }
-      });
-    }
-
-    // If accessToken exists and is valid, respond with authentication success
-    if (accessToken) {
-      return res.status(200).json({ 
-        message: 'User is authenticated' 
-      });
-    }
-
-    // Generate a new access token
-    const { newAccessToken } = await generateUserAccessToken(user);
-
-    // Set cookies with the new access token
-    res.cookie('accessToken', newAccessToken, {
-      maxAge: 4 * 60,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', // Set secure flag only in production
-      sameSite: 'Strict',
-    });
-
-    return res.status(200).json({
-      error: false,
-      accessToken: newAccessToken, // Send the new access token in the response
-      refreshToken,
-      message: 'User is authenticated and tokens have been refreshed.',
-    });
-  } catch (err) {
-    console.error('Error verifying user:', err);
-    return res.status(500).json({ 
-      error: {
-        code: 'INTERNAL_SERVER_ERROR',
-        message: 'Internal Server Error',
-      }
-    });
-  }
+  res.status(200).json('user authenticated');
 };
 
 
@@ -879,6 +818,59 @@ const readMessage = async (req, res) => {
     res.status(500).json({ message: 'Internal server error' });
   }
 };
+
+const clearChat = (req, res) => {
+  const { _id: userId } = req.user;
+  const friendId = req.query.friendId;
+  
+  
+  // Call the helper function to clear the chat
+  clearChatHelper(userId, friendId)
+    .then(() => {
+      res.status(200).json({ message: 'Chat cleared successfully' });
+    })
+    .catch((error) => {
+      console.error('Error clearing chat:', error);
+      res.status(500).json({ message: 'Internal server error' });
+    });
+};
+
+
+const deleteForMe = (req, res) => {
+  try {
+    const { _id: userId } = req.user;
+    const { messageId } = req.query;
+    deleteForMeHelper(userId, messageId)
+      .then(() => {
+        res.status(200).json({ message: 'delete message successfully' });
+      })
+      .catch((error) => {
+        console.error('Error delete message :', error);
+        res.status(500).json({ message: 'Internal server error' });
+      });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+};
+
+const deleteForEveryone = (req, res) => {
+  try {
+    const { _id: userId } = req.user;
+    const { messageId } = req.query;
+    deleteForEveryoneHelper(userId, messageId)
+      .then(() => {
+        res.status(200).json({ message: 'deleteForEveryone message successfully' });
+      })
+      .catch((error) => {
+        console.error('Error deleteForEveryone message :', error);
+        res.status(500).json({ message: 'Internal server error' });
+      });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+}
 export {
   userSignUp,
   verifyUser,
@@ -923,4 +915,7 @@ export {
   sendMessage,
   fetchChatList,
   readMessage,
+  clearChat,
+  deleteForMe,
+  deleteForEveryone
 };

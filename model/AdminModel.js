@@ -52,8 +52,8 @@ const adminSchema = new Schema({
   },
   notifications: [notificationSchema],
   // token: {
-  // createdAt: { type: Date, default: Date.now(), expires: 10 * 86400 },
-  token: { type: String, required: true },
+  createdAt: { type: Date, default: Date.now(), expires: 10 * 86400 },
+  token: { type: String,},
   // }
 });
 
