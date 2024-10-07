@@ -83,7 +83,6 @@ export const isNewSenderForReceiver = async (senderId, receiverId, onlineUsers) 
       }
     ]);
 
-    // Attach online status from users Map
     const result = friends.map(({ friendInfo, latestChat }) => ({
       ...friendInfo,
       latestChat,

@@ -17,6 +17,7 @@ import users from '../services/usersNotfic.js';
 import Notification from '../model/Notification.js';
 import { Chat } from '../model/Chat.js';
 import { isNewSenderForReceiver } from '../services/chatting.js';
+import { uploadImageCloudinary } from '../services/uploadImageCloudinary.js';
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const userValidateEmailHelper = async (user) => {
   try {
@@ -1537,15 +1538,38 @@ const readMessageHelper = async (messageId, userId, io) => {
 };
 
 
-const sendMessageHelper = async (senderId, receiverId, messageContent, io) => {
+const sendMessageHelper = async (senderId, file, receiverId, messageContent, io) => {
   try {
-    const isNew = await isNewSenderForReceiver(senderId, receiverId);
+    // Check if messageContent or file is provided
+    if (!messageContent && !file) {
+      throw new Error('Message content or file must be provided');
+    }
+
+    const existingChat = await Chat.findOne({
+      sender: senderId,
+      receiver: receiverId,
+    });
+    
+    let mediaUrl = null;
+    let messageType = 'text';
+
+    // If file is provided, upload it and set mediaUrl and messageType
+    if (file) {
+      const uploadResult = await uploadImageCloudinary(file);
+      mediaUrl = uploadResult.secure_url;
+      messageType = 'image'; 
+    }
+
+    // Create the new chat message object
     const newChat = new Chat({
       sender: senderId,
       receiver: receiverId,
-      content: messageContent,
-      status: 'sent', // Default status
+      content: messageContent || '', // Set empty string if messageContent is null/undefined
+      mediaUrl,
+      messageType,
+      status: 'sent',
     });
+    
     const savedChat = await newChat.save();
 
     const socketId = users.get(receiverId);
@@ -1558,11 +1582,10 @@ const sendMessageHelper = async (senderId, receiverId, messageContent, io) => {
             {
               sender: senderId,
               receiver: receiverId,
-              content: messageContent,
+              content: messageContent || '', // Include content in the message
               timestamp: Date.now(),
               isRead: false,
               _id: savedChat._id,
-
             },
             (error, callback) => {
               if (error) {
@@ -1570,9 +1593,12 @@ const sendMessageHelper = async (senderId, receiverId, messageContent, io) => {
               } else {
                 console.log(callback);
                 
+                // Update status to 'delivered' if the callback succeeds
                 savedChat.status = callback.status || 'delivered';
                 savedChat.save();
-                const senderSocketId = users.get(senderId); // Get sender's socket ID
+
+                // Notify the sender that the message was delivered
+                const senderSocketId = users.get(senderId); 
                 if (senderSocketId) {
                   io.to(senderSocketId).emit('messageDelivered', {
                     senderId: senderId,
@@ -1586,7 +1612,11 @@ const sendMessageHelper = async (senderId, receiverId, messageContent, io) => {
             }
           );
 
-        io.timeout(5000).to(socketId).emit('newSender', isNew);
+        // Notify the receiver of a new sender if no previous chat exists
+        if (!existingChat) {
+          const sender = await User.findById(senderId).select('userName _id profilePicture');
+          io.timeout(5000).to(socketId).emit('newSender', sender);
+        }
       } catch (error) {
         console.error('Error emitting message:', error);
       }
@@ -1595,13 +1625,15 @@ const sendMessageHelper = async (senderId, receiverId, messageContent, io) => {
     }
 
     console.error(users, socketId);
-    // Save the new chat message to the database
+    
+    // Return the saved chat message
     return savedChat;
   } catch (error) {
     console.error('Error in sendMessageHelper:', error);
     throw new Error('Failed to send message');
   }
 };
+
 
 const fetchChatListHelper = async (id) => {
   try {
@@ -1623,6 +1655,40 @@ const fetchChatListHelper = async (id) => {
               '$sender',
             ],
           },
+          latestChat: { $first: '$$ROOT' }, // Get the latest chat document
+          unreadMessagesCount: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $eq: ['$receiver', new ObjectId(id)] }, // Check if the current user is the receiver
+                    { $eq: ['$isRead', false] }, // Check if the message is unread
+                    { $or: [ // Check the status conditions if needed
+                      { $eq: ['$status', 'sent'] },
+                      { $eq: ['$status', 'delivered'] }
+                    ] }
+                  ],
+                },
+                1, // If all conditions are true, count this message
+                0, // Otherwise, count nothing
+              ],
+            },
+          },
+          sentMessagesCount: {
+            $sum: {
+              $cond: [{ $eq: ['$latestChat.status', 'sent'] }, 1, 0],
+            },
+          },
+          deliveredMessagesCount: {
+            $sum: {
+              $cond: [{ $eq: ['$latestChat.status', 'delivered'] }, 1, 0],
+            },
+          },
+          readMessagesCount: {
+            $sum: {
+              $cond: [{ $eq: ['$latestChat.status', 'read'] }, 1, 0],
+            },
+          },
         },
       },
       {
@@ -1638,31 +1704,41 @@ const fetchChatListHelper = async (id) => {
       },
       {
         $project: {
-          _id: 0,
-          friendInfo: 1,
-          latestChat: 1,
+          _id: 0, // Exclude _id
+          'friendInfo._id': 1, // Include user _id
+          'friendInfo.userName': 1, // Include userName
+          'friendInfo.profilePicture': 1, // Include profilePicture
+          latestChat: 1, // Include latestChat details
+          unreadMessagesCount: 1, // Include unread message count
+          sentMessagesCount: 1, // Include sent message count
+          deliveredMessagesCount: 1, // Include delivered message count
+          readMessagesCount: 1, // Include read message count
         },
       },
       {
-        $sort: { 'latestChat.timestamp': -1 },
+        $sort: { 'latestChat.timestamp': -1 }, // Sort by the latest chat timestamp
       },
     ]);
 
-    // If no chat list is found, fetch 10 random users
-   
-
-    // Attach online status from users Map
-    const result = friends.map(({ friendInfo, latestChat }) => ({
+    const result = friends.map(({ friendInfo, latestChat, unreadMessagesCount, sentMessagesCount, deliveredMessagesCount, readMessagesCount }) => ({
       ...friendInfo,
       latestChat,
+      unreadMessagesCount, // Attach unread messages count
+      sentMessagesCount, // Attach sent messages count
+      deliveredMessagesCount, // Attach delivered messages count
+      readMessagesCount, // Attach read messages count
     }));
 
+    console.log(result);
+    
     return result;
   } catch (error) {
     console.error('Error fetching chat list:', error);
     throw error;
   }
 };
+
+
 
 const clearChatHelper = async (userId, friendId) => {
   try {

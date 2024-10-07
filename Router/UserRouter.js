@@ -123,12 +123,12 @@ router.post('/report-post', reportPost);
 router.get('/chats/:userId',fetchChats);
 router.get('/friends',fetchChatList);
 
-router.post('/chats/:receiver/messages', sendMessage);
+router.post('/chats/:receiver/messages',upload.single('file'), sendMessage);
 router.post('/chats/read', readMessage);
 
 router.delete('/clearChat', clearChat);
 router.delete('/deleteForMe',deleteForMe);
-router.delete('/deleteForEveryone',deleteForEveryone)
+router.delete('/deleteForEveryone',deleteForEveryone);
 
 
 

@@ -768,6 +768,9 @@ const fetchChats = async (req, res) => {
 const sendMessage = async (req, res) => {
   const { receiver } = req.params;
   const { message } = req.body;
+  const {file} = req
+
+   
   const { _id: senderId } = req.user;
 
   try {
@@ -777,7 +780,7 @@ const sendMessage = async (req, res) => {
     }
 
     // Call helper function to send the message
-    const response = await sendMessageHelper(senderId, receiver, message, req.io);
+    const response = await sendMessageHelper(senderId,file, receiver, message, req.io);
 
     // Respond with success message
     return res.status(201).json({ message: 'Message sent successfully', response });
