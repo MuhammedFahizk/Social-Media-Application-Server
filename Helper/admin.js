@@ -31,6 +31,18 @@ const adminLoginHelper = (loginData) =>
       });
   });
 
+
+const fetchAdminHelper = () => {
+  return new Promise((resolve, reject) => {
+    Admin.find()
+      .then((admins) => {
+        resolve(admins);
+      })
+      .catch((error) => {
+        reject(error);
+      });
+  });
+};
 const logoutHelper = async (refreshToken) => {
   try {
     console.log(refreshToken);
@@ -123,15 +135,58 @@ const fetchUserHelper = (id) => {
 
 const blockUserHelper = (id) => {
   return new Promise((resolve, reject) => {
-    User.findByIdAndUpdate(id, { $set: { isBlocked: true } }, { new: true })
+    User.findByIdAndUpdate(
+      id,
+      {
+        $set: {
+          'isBlocked.status': true, // Update status to true
+          'isBlocked.createdAt': Date.now(), // Set createdAt timestamp
+        },
+      },
+      { new: true } // Return the updated document
+    )
       .then((user) => {
-        resolve(user);
+        resolve(user); // Successfully resolved with updated user
       })
       .catch((error) => {
-        reject(error);
+        reject(error); // Handle any errors
       });
   });
 };
+
+
+const migrateIsBlockedField = async () => {
+  try {
+    // Find all users with isBlocked set to true
+    const users = await User.find();
+
+    for (const user of users) {
+      // Update the isBlocked field to the new structure
+      await User.updateOne(
+        { _id: user._id },
+        {
+          $set: {
+            isBlocked: {
+              status: false, // Set status to true
+              createdAt: Date.now(), // Set createdAt to current date
+            },
+          },
+        }
+      );
+    }
+
+    console.log('Migration complete. All users updated.');
+  } catch (error) {
+    console.error('Error during migration:', error);
+  }
+};
+
+// Call the migration function
+
+
+// Call the migration function
+
+
 
 const unblockUserHelper = (id) => {
   return new Promise((resolve, reject) => {
@@ -197,7 +252,6 @@ const fetchPostHelper = async (id) => {
 
 const fetchDashBoardHelper = async () => {
   try {
-    // Aggregating user data
     const userMatrix = await User.aggregate([
       {
         $facet: {
@@ -215,7 +269,7 @@ const fetchDashBoardHelper = async () => {
           blockedUser: [
             {
               $match: {
-                isBlocked: true,
+                'isBlocked.status': true
               },
             },
             { $count: 'count' },
@@ -225,6 +279,27 @@ const fetchDashBoardHelper = async () => {
               $match: {
                 createdAt: {
                   $gte: new Date(Date.now() - 24 * 60 * 60 * 1000),
+                },
+              },
+            },
+            { $count: 'count' },
+          ],
+          newUsersCurrentMonth: [
+            {
+              $match: {
+                createdAt: {
+                  $gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1), // Start of current month
+                },
+              },
+            },
+            { $count: 'count' },
+          ],
+          blockedUsersCurrentMonth: [
+            {
+              $match: {
+                'isBlocked.status': true,
+                'isBlocked.createdAt': {
+                  $gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1), 
                 },
               },
             },
@@ -247,6 +322,12 @@ const fetchDashBoardHelper = async () => {
           newUsers: {
             $ifNull: [{ $arrayElemAt: ['$newUsers.count', 0] }, 0],
           },
+          newUsersCurrentMonth: {
+            $ifNull: [{ $arrayElemAt: ['$newUsersCurrentMonth.count', 0] }, 0],
+          },
+          blockedUsersCurrentMonth: { // Add this line for the blocked users
+            $ifNull: [{ $arrayElemAt: ['$blockedUsersCurrentMonth.count', 0] }, 0],
+          },
         },
       },
     ]);
@@ -268,6 +349,14 @@ const fetchDashBoardHelper = async () => {
       newUsers: {
         label: 'New Users (Last 24h)',
         count: userMatrix[0].newUsers,
+      },
+      newUsersCurrentMonth: {
+        label: ' Users',
+        count: userMatrix[0].newUsersCurrentMonth,
+      },
+      blockedUsersCurrentMonth: { // Add blocked users for the current month
+        label: 'Blocked Users ',
+        count: userMatrix[0].blockedUsersCurrentMonth,
       },
     };
 
@@ -311,6 +400,16 @@ const fetchDashBoardHelper = async () => {
             },
             { $count: 'count' }, // Ensure counting popular posts
           ],
+          newPostsCurrentMonth: [
+            {
+              $match: {
+                createdAt: {
+                  $gte: new Date(new Date().getFullYear(), new Date().getMonth(), 1), // Start of current month
+                },
+              },
+            },
+            { $count: 'count' },
+          ],
         },
       },
       {
@@ -327,6 +426,9 @@ const fetchDashBoardHelper = async () => {
           },
           PopularPosts: {
             $ifNull: [{ $arrayElemAt: ['$PopularPosts.count', 0] }, 0],
+          },
+          newPostsCurrentMonth: {
+            $ifNull: [{ $arrayElemAt: ['$newPostsCurrentMonth.count', 0] }, 0],
           },
         },
       },
@@ -349,6 +451,10 @@ const fetchDashBoardHelper = async () => {
       popularPosts: {
         label: 'Popular Posts',
         count: postMatrix[0].PopularPosts,
+      },
+      newPostsCurrentMonth: {
+        label: ' Posts ',
+        count: postMatrix[0].newPostsCurrentMonth,
       },
     };
     const fullMonthlyData = await fetchMonthlyUserData();
@@ -400,6 +506,7 @@ const sendNotificationHelper = async (message, recipients, adminId, io) => {
 
 
 export {
+  fetchAdminHelper,
   adminLoginHelper,
   fetchUserHelper,
   adminGoogleLoginHelper,
@@ -412,4 +519,5 @@ export {
   fetchDashBoardHelper,
   logoutHelper,
   sendNotificationHelper,
+  migrateIsBlockedField
 };

@@ -97,7 +97,7 @@ const userLoginHelper = async (user) => {
         if (!existingUser) {
           reject(new Error('Invalid credentials'));
         }
-        if (existingUser.isBlocked) {
+        if (existingUser.isBlocked.status) {
           reject(new Error('Your account is blocked'));
         }
         const isPasswordValid = await argon2.verify(
@@ -784,6 +784,7 @@ const fetchPostsHelper = async (heading, offset, id) => {
               imageUrl: { $first: '$imageUrl' },
               title: { $first: '$title' },
               body: { $first: '$body' },
+              location:{ $first: '$location' },
               hashTag: { $first: '$hashTag' },
               likes: { $first: '$likes' },
               comments: { $first: '$comments' },
@@ -958,34 +959,28 @@ const deleteCommentHelper = (commentId, postId) => {
 
 const getFreshStoriesHelper = async (userId) => {
   try {
-    // Retrieve the current user's information
     const currentUser = await User.findById(userId).lean();
 
-    // Define a helper function to filter stories for freshness
-    const filterFreshStories = (stories) => {
-      const twentyFourHoursInMilliseconds = 1000 * 60 * 60 * 24;
-      return stories.filter(
-        (story) =>
-          story.createdAt.getTime() > Date.now() - twentyFourHoursInMilliseconds
-      );
-    };
+    const twentyFourHoursAgo = new Date(Date.now() - 1000 * 60 * 60 * 24);
 
-    // Perform the aggregation to get users who are either followed by the current user, are following the current user, or the current user themselves
+    // Aggregation pipeline
     const users = await User.aggregate([
       { $unwind: '$story' },
       {
         $match: {
+          'story.createdAt': { $gt: twentyFourHoursAgo },
           $or: [
             { followers: new ObjectId(currentUser._id) },
             { following: new ObjectId(currentUser._id) },
-            { _id: new ObjectId(currentUser._id) },
+           
           ],
+          _id: { $ne: new ObjectId(currentUser._id) }, // Exclude the current user
+
         },
       },
-      { $sort: { 'story.createdAt': -1 } },
       {
         $lookup: {
-          from: 'users', // The collection name in MongoDB
+          from: 'users',
           localField: 'story.views.userId',
           foreignField: '_id',
           as: 'story.views.userDetails',
@@ -996,31 +991,188 @@ const getFreshStoriesHelper = async (userId) => {
           _id: '$_id',
           userName: { $first: '$userName' },
           email: { $first: '$email' },
-          isBlocked: { $first: '$isBlocked' },
-          bio: { $first: '$bio' },
           profilePicture: { $first: '$profilePicture' },
-          followers: { $first: '$followers' },
-          following: { $first: '$following' },
-          story: { $push: '$story' },
+          story: { $push: '$story' }, // Pushing stories for the user
         },
       },
+      {
+        $sort: { userName: 1 } 
+      },
+      {
+        $project: {
+          _id: 1,
+          userName: 1,
+          email: 1,
+          profilePicture: 1,
+          story: 1
+        }
+      }
     ]);
 
-    // Filter for fresh stories and remove users with no fresh stories
-    const freshStoryUsers = users
-      .map((user) => ({
-        ...user,
-        story: filterFreshStories(user.story),
-      }))
-      .filter((user) => user.story.length > 0);
 
-    return freshStoryUsers;
+    return users;
   } catch (error) {
     console.error('Error fetching fresh stories:', error);
     throw error;
   }
 };
 
+
+const getStoriesHelper = async (userName, storyId,  _id) => {
+
+  try {
+    // Fetch user by userName
+    const user = await User.findOne(
+      { userName },
+      { userName: 1, profilePicture: 1, story: 1, _id: 1 }
+    ).lean();
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const twentyFourHoursAgo = new Date(Date.now() - 1000 * 60 * 60 * 24);
+
+    // Filter the stories created within the last 24 hours
+    const recentStories = user.story.filter((story) => story.createdAt > twentyFourHoursAgo);
+
+    const specificStory = recentStories.find((story) => story._id.toString() === storyId);
+    const hasViewed = specificStory.views.some((view) => view.userId.toString() === _id);
+
+    if (!hasViewed) {
+      // If the user hasn't viewed the story, add their view details
+      await User.updateOne(
+        { _id: user._id, 'story._id': storyId }, // Find the specific user and story
+        {
+          $push: {
+            'story.$.views': {
+              userId: _id,
+              viewedAt: new Date(),
+            },
+          },
+        }
+      );
+    }
+    if (!specificStory) {
+      throw new Error('Story not found');
+    }
+
+    const allUsersWithFreshStories = await getFreshStoriesHelper(_id);
+
+    // Find the current user index in the fresh stories list
+    const currentUserIndex = allUsersWithFreshStories.findIndex(
+      (u) => u.userName === userName
+    );
+
+    if (currentUserIndex === -1) {
+      return {
+        recentStories,
+        user: { userName: user.userName, profilePicture: user.profilePicture,_id: user._id },
+        nextUserId: null,
+        nextUserName: null,
+        nextStoryId: null,
+        previousUserId: null,
+        previousUserName: null,
+        previousStoryId: null,
+      };
+    }
+
+    let nextStoryId, nextUserId, nextUserName;
+    let previousStoryId, previousUserId, previousUserName;
+
+    const specificStoryIndex = recentStories.findIndex(
+      (story) => story._id.toString() === storyId
+    );
+
+    // Logic for next story
+    if (specificStoryIndex < recentStories.length - 1) {
+      // Next story within the same user
+      nextStoryId = recentStories[specificStoryIndex + 1]._id;
+      nextUserId = user._id;
+      nextUserName = user.userName;
+    } else {
+      // Move to the next user's first story, with array wrapping
+      const nextUserIndex = (currentUserIndex + 1);
+      const nextUser = allUsersWithFreshStories[nextUserIndex];
+
+      if (nextUser && nextUser.story.length > 0) {
+        nextStoryId = nextUser.story[0]._id;
+        nextUserId = nextUser._id;
+        nextUserName = nextUser.userName;
+      } else {
+        nextStoryId = null;
+        nextUserId = null;
+        nextUserName = null;
+      }
+    }
+
+    // Logic for previous story
+    if (specificStoryIndex > 0) {
+      // Previous story within the same user
+      previousStoryId = recentStories[specificStoryIndex - 1]._id;
+      previousUserId = user._id;
+      previousUserName = user.userName;
+    } else {
+      // Move to the previous user's last story, with array wrapping
+      const previousUserIndex = (currentUserIndex - 1);
+      const previousUser = allUsersWithFreshStories[previousUserIndex];
+
+      if (previousUser && previousUser.story.length > 0) {
+        previousStoryId = previousUser.story[previousUser.story.length - 1]._id;
+        previousUserId = previousUser._id;
+        previousUserName = previousUser.userName;
+      } else {
+        previousStoryId = null;
+        previousUserId = null;
+        previousUserName = null;
+      }
+    }
+
+    return {
+      specificStory,
+      user: { userName: user.userName, profilePicture: user.profilePicture ,_id: user._id},
+      nextUserId, // Next user ID
+      nextUserName, // Next user name
+      nextStoryId, // Next story ID
+      previousUserId, // Previous user ID
+      previousUserName, // Previous user name
+      previousStoryId, // Previous story ID
+    };
+  } catch (error) {
+    console.error('Error fetching stories:', error);
+    throw error;
+  }
+};
+
+const getCurrentUserStoriesHelper = async (_id) => {
+  const twentyFourHoursAgo = new Date(Date.now() - 1000 * 60 * 60 * 24);
+
+  // Find the current user and populate the views in each story
+  const user = await User.findById(_id)
+    .select('userName profilePicture story')
+    .populate({
+      path: 'story.views.userId',
+      select: 'userName profilePicture', // Select only relevant fields from the user
+    })
+    .lean();
+
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  // Filter stories created in the last 24 hours
+  const recentStories = user.story.filter((story) => new Date(story.createdAt) > twentyFourHoursAgo);
+
+  return {
+    user: {
+      userName: user.userName,
+      profilePicture: user.profilePicture,
+    },
+    stories: recentStories,
+  };
+};
+
+ 
 const incrementViewerCountHelper = async (userId, storyId, authorId) => {
   try {
     // Find the author by ID and populate the story field
@@ -1739,7 +1891,6 @@ const fetchChatListHelper = async (id) => {
 };
 
 
-
 const clearChatHelper = async (userId, friendId) => {
   try {
     const chatsSent = await Chat.updateMany(
@@ -1856,5 +2007,7 @@ export {
   clearChatHelper,
   deleteForMeHelper,
   deleteForEveryoneHelper,
+  getStoriesHelper,
+  getCurrentUserStoriesHelper,
 };
 

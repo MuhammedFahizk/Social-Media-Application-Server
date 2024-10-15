@@ -50,6 +50,8 @@ import {
   clearChatHelper,
   deleteForMeHelper,
   deleteForEveryoneHelper,
+  getStoriesHelper,
+  getCurrentUserStoriesHelper,
 } from '../helper/user.js';
 import { User } from '../model/User.js';
 import { deleteImageCloudinary } from '../services/deleteImageCloudinary.js';
@@ -554,19 +556,39 @@ const deleteComment = (req, res) => {
     res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 };
-const getFreshStories = (req,res) => {
-  const {_id} = req.user;
-  getFreshStoriesHelper(_id)
-    .then(user => {
-      res.status(200).json({ message: 'Comment deleted successfully' , user});
-    })
-    .catch((error) => {
-      console.error('Error fetching story comment:', error);
-      res.status(500).json({ message: 'Internal server error', error: error.message });
-    });
+const getFreshStories = async (req, res) => {
+  try {
+    const { _id } = req.user;
 
-  
+    const user = await getFreshStoriesHelper(_id);
+
+    const userStories = await getCurrentUserStoriesHelper(_id);
+
+    res.status(200).json({ userStories, user });
+  } catch (error) {
+    console.error('Error fetching stories:', error);
+    res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
 };
+
+
+const getStories = async (req, res) => {
+  try {
+    const { userName, storyId } = req.params;
+    const { _id } = req.user;
+
+    // Call the helper function to fetch stories
+    const stories = await getStoriesHelper(userName, storyId,_id);
+    // Respond with the fetched stories
+    res.status(200).json(stories);
+  } catch (error) {
+    console.error('Error in getStories:', error);
+    res.status(500).json({ message: error.message || 'Internal Server Error' });
+  }
+};
+
+
+
 
 const incrementViewerCount = async (req, res) => {
   const {_id: userId}  = req.user;
@@ -920,5 +942,6 @@ export {
   readMessage,
   clearChat,
   deleteForMe,
-  deleteForEveryone
+  deleteForEveryone,
+  getStories,
 };

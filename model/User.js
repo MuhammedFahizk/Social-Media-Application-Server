@@ -14,8 +14,14 @@ const userSchema = new Schema(
       unique: true,
     },
     isBlocked: {
-      type: Boolean,
-      default: false,
+      status: {
+        type: Boolean,
+        default: false,
+      },
+      createdAt: {
+        type: Date,
+        default: null, // Initially set to null, can be updated when blocking a user
+      },
     },
     password: {
       type: String,

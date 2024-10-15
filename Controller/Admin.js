@@ -11,6 +11,8 @@ import {
   fetchDashBoardHelper,
   sendNotificationHelper,
   logoutHelper,
+  fetchAdminHelper,
+  migrateIsBlockedField,
 } from '../helper/admin.js';
 import {
   generateAdminAccessToken,
@@ -19,6 +21,7 @@ import {
 import { verifyAdminRefreshToken } from '../Utils/admin/verifyAdminRefreshToken.js';
 import Admin from '../model/AdminModel.js';
 // Define your controller functions
+
 
 const adminLogin = async (req, res) => {
   try {
@@ -42,6 +45,7 @@ const adminLogin = async (req, res) => {
     res.status(200).json({
       error: false,
       message: 'Admin logged in successfully',
+      data: result,
     });
   } catch (err) {
     console.error('Error while logging in admin:', err);
@@ -51,6 +55,34 @@ const adminLogin = async (req, res) => {
     } else {
       res.status(500).json({ error: true, message: err.message });
     }
+  }
+};
+
+const fetchAdmin = (req, res) => {
+  try {
+    // const adminId = req.adminId; // Use this if you need to filter by a specific admin ID.
+    
+    fetchAdminHelper()
+      .then((result) => {
+        res.status(200).json({
+          error: false,
+          message: 'Admin fetched successfully',
+          result
+        });
+      })
+      .catch((error) => {
+        res.status(500).json({
+          error: true,
+          message: 'Failed to fetch admin',
+          details: error.message,
+        });
+      });
+  } catch (error) {
+    res.status(500).json({
+      error: true,
+      message: 'An unexpected error occurred',
+      details: error.message,
+    });
   }
 };
 
@@ -202,6 +234,8 @@ const blockUser = (req, res) => {
       return res.status(200).json({ data: data, message: 'User Blocked' });
     })
     .catch((err) => {
+      console.log(err);
+      
       return res.status(500).json({ message: 'Internal Server Error', err });
     });
 };
@@ -266,6 +300,7 @@ const sendNotification = async (req, res) => {
 export {
   verifyAdmin,
   adminLogin,
+  fetchAdmin,
   loginWithGoogle,
   generateAccessToken,
   usersList,

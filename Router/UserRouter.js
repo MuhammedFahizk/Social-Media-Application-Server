@@ -46,10 +46,11 @@ import {
   readMessage,
   clearChat,
   deleteForMe,
-  deleteForEveryone
+  deleteForEveryone,
+  getStories
 } from '../controller/User.js';
 
-import { userAuthentication, userProtectedRoutes } from '../middlewares/userAuthentication.js';
+import { userAuthentication } from '../middlewares/userAuthentication.js';
 
 const upload = multer({ dest: 'uploads/' });
 const router = express.Router();
@@ -101,6 +102,7 @@ router.delete('/deleteComment', deleteComment);
 
 // Story-related routes
 router.get('/getFreshStories/', getFreshStories);
+router.get('/getFreshStories/:userName/:storyId', getStories);
 router.post('/incrementViewerCount', incrementViewerCount);
 router.get('/fetchProfileStores/:userId', fetchProfileStores);
 
@@ -129,7 +131,6 @@ router.post('/chats/read', readMessage);
 router.delete('/clearChat', clearChat);
 router.delete('/deleteForMe',deleteForMe);
 router.delete('/deleteForEveryone',deleteForEveryone);
-
 
 
 export default router;

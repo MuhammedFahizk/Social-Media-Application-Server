@@ -9,7 +9,7 @@ const notificationSchema = new Schema({
   },
   recipient: {
     type: Schema.Types.ObjectId,
-    ref: 'User', // Reference to the User who will receive the notification
+    ref: 'User',
   },
   createdAt: {
     type: Date,

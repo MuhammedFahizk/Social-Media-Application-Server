@@ -13,6 +13,7 @@ import {
   fetchDashBoard,
   sendNotification,
   logOutUser,
+  fetchAdmin,
 } from '../controller/Admin.js';
 import { adminAuthentication } from '../Middlewares/adminAuthentication.js';
 const router = Router();
@@ -24,6 +25,8 @@ router.get('/logOut', logOutUser);
 router.post('/generateAccessToken', generateAccessToken);
 router.post('/loginWithGoogle', loginWithGoogle);
 router.post('/verifyAdmin',adminAuthentication, verifyAdmin);
+router.get('/admin',adminAuthentication,fetchAdmin);
+
 router.get('/users', adminAuthentication,usersList);
 router.get('/users/:id',adminAuthentication, fetchUser);
 router.get('/blockUser/:id',adminAuthentication, blockUser);

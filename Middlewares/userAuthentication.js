@@ -30,7 +30,7 @@ export const userAuthentication = async (req, res, next) => {
     }
 
     // Check if user is blocked
-    if (user.isBlocked) {
+    if (user.isBlocked.status) {
       return res.status(403).json({
         error: {
           code: 'USER_BLOCKED',
