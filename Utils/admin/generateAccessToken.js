@@ -9,7 +9,6 @@ const generateAccessToken = async (refreshToken) => {
     if (typeof refreshToken !== 'string') {
       throw new Error('Invalid refresh token format');
     }
-    // Verify environment variables
     console.log(admin);
     if (!process.env.ACCESS_TOKEN_SECRET) {
       throw new Error('Missing environment variables');

@@ -312,7 +312,6 @@ const followingHelper = async (_id, userId, io) => {
 
     await notification.save();
 
-    // Send real-time notification if user is online
     if (delivered) {
       io.to(socketId).emit('newNotification', {
         notification,
@@ -816,30 +815,27 @@ const fetchPostsHelper = async (heading, offset, id) => {
   }
 };
 
-const deletePostHelper = async (id, _id) => {
+const deletePostHelper = async (id, _id, isAdmin = false) => {
   try {
     const post = await Posts.findById(id);
     if (!post) {
-      throw { error: 'Post not found' };
+      throw new Error('Post not found');
     }
 
-    if (post.author.toString() !== _id) {
-      throw { error: 'You are not authorized to delete this post' };
+    // Check authorization
+    if (post.author.toString() !== _id && !isAdmin) {
+      throw new Error('You are not authorized to delete this post');
     }
 
-    // await deleteImageCloudinary(post.imageUrl);
-    await Posts.findByIdAndDelete(id)
-      .then((res) => {
-        return { success: 'Post deleted successfully', res };
-      })
-      .catch((err) => {
-        console.error('Error deleting post:', err);
-        return { error: 'Error deleting post' };
-      });
+    await Posts.findByIdAndDelete(id);
+
+    return { success: 'Post deleted successfully', post };
   } catch (error) {
-    return { error: 'An error occurred while deleting the post', error };
+    console.error('Error deleting post:', error);
+    throw new Error('An error occurred while deleting the post');
   }
 };
+
 
 const getFollowersHelper = async (userId, offset = 0, query) => {
   try {

@@ -14,6 +14,10 @@ import {
   sendNotification,
   logOutUser,
   fetchAdmin,
+  getAllReports,
+  dismissReport,
+  banUserAndResolveReport,
+  deletePostAndResolveReport,
 } from '../controller/Admin.js';
 import { adminAuthentication } from '../Middlewares/adminAuthentication.js';
 const router = Router();
@@ -37,4 +41,14 @@ router.get('/fetchDashBoard',adminAuthentication,fetchDashBoard);
 
 // notification
 router.post('/send-Notification',adminAuthentication,sendNotification);
+
+// **New Routes for Report Management**
+
+router.get('/reports', adminAuthentication,getAllReports); 
+// router.get('/reports/:id', adminAuthentication, getReportById);
+router.put('/reports/:reportId/:postId/delete-post', adminAuthentication, deletePostAndResolveReport);
+router.put('/reports/:reportId/:postId/ban-user', adminAuthentication, banUserAndResolveReport); 
+router.put('/reports/:reportId/:postId/dismiss', adminAuthentication, dismissReport);
+
 export default router;
+ 

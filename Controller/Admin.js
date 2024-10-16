@@ -20,6 +20,8 @@ import {
 } from '../Utils/admin/generateTokens.js';
 import { verifyAdminRefreshToken } from '../Utils/admin/verifyAdminRefreshToken.js';
 import Admin from '../model/AdminModel.js';
+import { banUserHelper, dismissReportHelper, getAllReportsHelper, notifyDeletePost } from '../helper/admin/reportHelper.js';
+import { deletePostHelper } from '../helper/user.js';
 // Define your controller functions
 
 
@@ -297,6 +299,81 @@ const sendNotification = async (req, res) => {
     return res.status(500).json({ message: 'Internal Server Error', error: error.message });
   }
 };
+
+const getAllReports = async (req, res) => {
+  try {
+    const reports = await getAllReportsHelper();
+    res.status(200).json(reports);
+  } catch (error) {
+    console.error('Error fetching reports:', error);
+    res.status(500).json({ message: 'Error fetching reports', error: error.message });
+  }
+};
+
+
+const dismissReport = async (req, res) => {
+  try {
+    const { reportId,postId } = req.params;
+    const { comment } = req.body;
+    dismissReportHelper(reportId,postId, comment)
+      .then((data) => {
+        return res.status(200).json({ data, message: 'Report dismissed' });
+      })
+      .catch((err) => {
+        return res.status(500).json({ message: 'Internal Server Error', err });
+
+      });
+
+
+  } catch (error) {
+    console.error('Error dismissReport reports:', error);
+    res.status(500).json({ message: 'Error dismissReport reports', error: error.message });
+  }
+};
+
+const banUserAndResolveReport = async (req, res) => {
+  try {
+    const { reportId, postId } = req.params; // Extract report ID and post ID from parameters
+    const { comment } = req.body; // Extract comment from the request body
+
+
+    await banUserHelper(reportId, postId, comment);
+
+    return res.status(200).json({ message: 'User banned and report resolved' });
+  } catch (error) {
+    console.error('Error banning user and resolving report:', error);
+    return res.status(500).json({ message: 'Internal Server Error', error: error.message });
+  }
+};
+
+
+const deletePostAndResolveReport = async (req, res) => {
+  try {
+    const { reportId, postId } = req.params; 
+    const isAdmin = true;
+    
+    deletePostHelper(postId, reportId, isAdmin)
+      .then((result) => {
+        if (result && result.post) {
+          console.log('admin',req.admin);
+          
+          notifyDeletePost(result.post, req.admin._id, req.io);
+          return res.status(200).json({ message: 'User banned and report resolved' });
+        } else {
+          return res.status(500).json({ message: 'Failed to delete post' });
+        }
+      })
+      .catch((error) => {
+        console.error('Error deleting post:', error);
+        res.status(500).json({ message: 'Internal server error', error: error.message });
+      });
+  } catch (error) {
+    console.error('Error banning user and resolving report:', error);
+    return res.status(500).json({ message: 'Internal Server Error', error: error.message });
+  }
+};
+
+
 export {
   verifyAdmin,
   adminLogin,
@@ -313,4 +390,10 @@ export {
   //Notification
   sendNotification,
   logOutUser,
+
+  //report 
+  getAllReports,
+  dismissReport,
+  banUserAndResolveReport,
+  deletePostAndResolveReport
 };

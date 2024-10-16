@@ -1,6 +1,5 @@
 import mongoose from 'mongoose';
 
-// Define a schema for comments
 const commentSchema = new mongoose.Schema(
   {
     author: {
@@ -28,6 +27,16 @@ const reportSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    actionTaken: {
+      type: String, // e.g., 'deleted', 'warned', 'banned', 'dismissed'
+      enum: ['deleted', 'warned', 'banned', 'dismissed', 'none'],
+      default: 'none',
+    },
+    comments: [
+      {
+        type: String, // Admin comments or notes
+      },
+    ],
     resolved: {
       type: Boolean,
       default: false, // Indicates if the report has been resolved
@@ -36,7 +45,6 @@ const reportSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Define the schema for posts
 const postSchema = new mongoose.Schema(
   {
     author: {
@@ -73,12 +81,11 @@ const postSchema = new mongoose.Schema(
         ref: 'User',
       },
     ],
-    comments: [commentSchema], // Use the comment schema for comments
+    comments: [commentSchema],
     reports : [reportSchema]
   },
-  { timestamps: true } // Automatically add createdAt and updatedAt fields
+  { timestamps: true } 
 );
 
-// Create and export the model
-const Posts = mongoose.model('Post', postSchema); // Use 'Post' instead of 'Posts'
+const Posts = mongoose.model('Post', postSchema); 
 export default Posts;
