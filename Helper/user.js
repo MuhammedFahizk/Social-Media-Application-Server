@@ -1433,7 +1433,7 @@ const hidePostHelper = async (postId, userId) => {
       throw new Error('User not found');
     }
 
-    console.log(`Hiding post with ID: ${postId} for user with ID: ${userId}`);
+    console.warn(`Hiding post with ID: ${postId} for user with ID: ${userId}`);
     return { message: 'Post hidden successfully' };
   } catch (error) {
     console.error('Error hiding post:', error);
@@ -1599,7 +1599,7 @@ const fetchChatsHelper = async (userId1, userId2, io) => {
     });
 
     if (unreadMessages.length === 0) {
-      console.log('No unread messages to update');
+      console.warn('No unread messages to update');
     } else {
       const updateResult = await Chat.updateMany(
         {
@@ -1610,7 +1610,7 @@ const fetchChatsHelper = async (userId1, userId2, io) => {
         { $set: { status: 'read' } }
       );
 
-      console.log(`Marked ${updateResult.modifiedCount} messages as 'read'`);
+      console.warn(`Marked ${updateResult.modifiedCount} messages as 'read'`);
 
       const socketId = users.get(userId1);
       if (socketId) {
@@ -1618,7 +1618,7 @@ const fetchChatsHelper = async (userId1, userId2, io) => {
           message.status = 'read';
           io.timeout(5000).to(socketId).emit('readMessage', message); // Emit the message update to the socket
         });
-        console.log(`Emitted 'readMessage' event for ${unreadMessages.length} messages`);
+        console.warn(`Emitted 'readMessage' event for ${unreadMessages.length} messages`);
       } else {
         console.warn(`No socket connection for user ${userId1}`);
       }
@@ -1658,8 +1658,6 @@ const readMessageHelper = async (messageId, userId, io) => {
       throw new Error(`Message with ID ${messageId} not found`);
     }
 
-    // Log the entire updated message for debugging
-    console.log('Updated message:', updatedMessage);
 
     // Ensure the sender field exists
     if (!updatedMessage.sender) {
@@ -1668,7 +1666,6 @@ const readMessageHelper = async (messageId, userId, io) => {
 
     // Notify the user via socket
     const socketId = users.get(updatedMessage.sender.toString()); // Retrieve the user's socket ID
-    console.log('Sender ID:', updatedMessage.sender, socketId);
 
     if (socketId) {
       io.timeout(5000)
@@ -1712,7 +1709,7 @@ const sendMessageHelper = async (senderId, file, receiverId, messageContent, io)
     const newChat = new Chat({
       sender: senderId,
       receiver: receiverId,
-      content: messageContent || '', // Set empty string if messageContent is null/undefined
+      content: messageContent || '',
       mediaUrl,
       messageType,
       status: 'sent',
@@ -1730,8 +1727,9 @@ const sendMessageHelper = async (senderId, file, receiverId, messageContent, io)
             {
               sender: senderId,
               receiver: receiverId,
-              content: messageContent || '', // Include content in the message
+              content: messageContent || '',
               timestamp: Date.now(),
+              mediaUrl,
               isRead: false,
               _id: savedChat._id,
             },
@@ -1741,11 +1739,9 @@ const sendMessageHelper = async (senderId, file, receiverId, messageContent, io)
               } else {
                 console.log(callback);
                 
-                // Update status to 'delivered' if the callback succeeds
                 savedChat.status = callback.status || 'delivered';
                 savedChat.save();
 
-                // Notify the sender that the message was delivered
                 const senderSocketId = users.get(senderId); 
                 if (senderSocketId) {
                   io.to(senderSocketId).emit('messageDelivered', {

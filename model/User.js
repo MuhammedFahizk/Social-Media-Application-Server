@@ -1,4 +1,4 @@
-import mongoose, { model } from "mongoose";
+import mongoose, { model } from 'mongoose';
 const { Schema } = mongoose;
 
 const userSchema = new Schema(
@@ -20,7 +20,7 @@ const userSchema = new Schema(
       },
       createdAt: {
         type: Date,
-        default: null, // Initially set to null, can be updated when blocking a user
+        default: null, 
       },
     },
     password: {
@@ -32,18 +32,18 @@ const userSchema = new Schema(
     },
     profilePicture: { type: String },
     followers: [
-      { type: mongoose.Schema.Types.ObjectId, ref: "User", default: [] },
+      { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: [] },
     ],
     following: [
-      { type: mongoose.Schema.Types.ObjectId, ref: "User", default: [] },
+      { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: [] },
     ],
     token: { type: String },
     lastActive: { type: Date, default: Date.now },
     hiddenPosts: [
-      { type: mongoose.Schema.Types.ObjectId, ref: "Post", default: [] },
+      { type: mongoose.Schema.Types.ObjectId, ref: 'Post', default: [] },
     ],
     hiddenUsers: [
-      { type: mongoose.Schema.Types.ObjectId, ref: "User", default: [] },
+      { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: [] },
     ],
     online: {
       type: Boolean,
@@ -64,7 +64,7 @@ const userSchema = new Schema(
         },
         views: [
           {
-            userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+            userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
             viewedAt: { type: Date, default: Date.now },
           },
         ],
@@ -88,7 +88,7 @@ userSchema.methods.hashFreshStory = async function () {
   );
 };
 
-const Otp = model("Otp", otpSchema);
-const User = model("User", userSchema);
+const Otp = model('Otp', otpSchema);
+const User = model('User', userSchema);
 
 export { User, Otp };

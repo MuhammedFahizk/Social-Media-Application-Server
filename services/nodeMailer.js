@@ -14,7 +14,7 @@ function sendOtpUserOtp(email, otp) {
   console.error(otp, email); // Log OTP and email for debugging
   return new Promise((resolve, reject) => {
     const mailOption = {
-      from: process.env.NODEMAILER_EMAIL, // Use the same email as the authenticated one
+      from: process.env.NODEMAILER_EMAIL,
       to: email,
       subject: 'Your OTP for Login',
       text: `Your OTP is: ${otp}`

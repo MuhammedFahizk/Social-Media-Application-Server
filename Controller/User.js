@@ -89,9 +89,19 @@ const userSignUp = async (req, res) => {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'Strict',
     });
+    const { userName, _id, profilePicture, email, bio, following, followers } = data;
     return res.status(200).json({
       message: 'User created successfully',
       accessToken,
+      user: {
+        userName,
+        _id,
+        profilePicture,
+        email,
+        bio,
+        following,
+        followers,
+      },
     });
   } catch (error) {
     console.error('Error in user sign-up:', error);
@@ -797,12 +807,12 @@ const sendMessage = async (req, res) => {
 
   try {
     // Ensure receiver and message are provided
-    if (!receiver || !message) {
-      return res.status(400).json({ error: 'Receiver and message are required' });
+    if (!receiver ) {
+      return res.status(400).json({ error: 'Receiver  are required' });
     }
 
     // Call helper function to send the message
-    const response = await sendMessageHelper(senderId,file, receiver, message, req.io);
+    const response = await sendMessageHelper(senderId,file, receiver, message , req.io);
 
     // Respond with success message
     return res.status(201).json({ message: 'Message sent successfully', response });
