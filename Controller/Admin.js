@@ -17,8 +17,8 @@ import {
 import {
   generateAdminAccessToken,
   generateToken,
-} from '../Utils/admin/generateTokens.js';
-import { verifyAdminRefreshToken } from '../Utils/admin/verifyAdminRefreshToken.js';
+} from '../utils/admin/generateTokens.js';
+import { verifyAdminRefreshToken } from '../utils/admin/verifyAdminRefreshToken.js';
 import Admin from '../model/AdminModel.js';
 import { banUserHelper, dismissReportHelper, getAllReportsHelper, notifyDeletePost } from '../helper/admin/reportHelper.js';
 import { deletePostHelper } from '../helper/user.js';

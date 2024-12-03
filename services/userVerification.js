@@ -1,5 +1,5 @@
 import { User } from '../model/User.js';
-import { generateUserAccessToken } from '../Utils/User/generateUserAccessToken.js';
+import { generateUserAccessToken } from '../utils/User/generateUserAccessToken.js';
 
 export const userVerification = async (req, res) => {
   const { refreshToken } = req.cookies;

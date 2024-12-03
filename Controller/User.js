@@ -1,7 +1,7 @@
 import { response } from 'express';
-import { generateUserAccessToken } from '../Utils/User/generateUserAccessToken.js';
-import { generateUserToken } from '../Utils/User/generateUserToken.js';
-import { verifyUserRefreshToken } from '../Utils/User/verifyUserRefreshToken.js';
+import { generateUserAccessToken } from '../utils/User/generateUserAccessToken.js';
+import { generateUserToken } from '../utils/User/generateUserToken.js';
+import { verifyUserRefreshToken } from '../utils/User/verifyUserRefreshToken.js';
 import {
   userValidateEmailHelper,
   userSignUpHelper,

@@ -1,5 +1,5 @@
 import jwt from 'jsonwebtoken';
-import { generateAccessToken } from '../Utils/admin/generateAccessToken.js';
+import { generateAccessToken } from '../utils/admin/generateAccessToken.js';
 
 export const adminAuthentication = async (req, res, next) => {
   const { accessToken, refreshToken } = req.cookies;

@@ -19,7 +19,7 @@ import {
   banUserAndResolveReport,
   deletePostAndResolveReport,
 } from '../controller/Admin.js';
-import { adminAuthentication } from '../Middlewares/adminAuthentication.js';
+import { adminAuthentication } from '../middlewares/adminAuthentication.js';
 const router = Router();
 
 // Define your routes

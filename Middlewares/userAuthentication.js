@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 import { userVerification } from '../services/userVerification.js';
-import { generateUserAccessToken } from '../Utils/User/generateUserAccessToken.js';
+import { generateUserAccessToken } from '../utils/User/generateUserAccessToken.js';
 import { User } from '../model/User.js';
 
 

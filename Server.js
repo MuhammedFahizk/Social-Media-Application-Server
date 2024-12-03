@@ -9,7 +9,7 @@ import cookieParser from 'cookie-parser';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import users from './services/usersNotfic.js';
-import { attachIo } from './Middlewares/attachIo.js';
+import { attachIo } from './middlewares/attachIo.js';
 import { deliverUndeliveredNotifications } from './services/Notification.js';
 import { manageOnline } from './services/onlineLastSeenHandler.js';
 
