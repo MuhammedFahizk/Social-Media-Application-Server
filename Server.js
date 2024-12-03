@@ -12,7 +12,6 @@ import users from './services/usersNotfic.js';
 import { attachIo } from './Middlewares/attachIo.js';
 import { deliverUndeliveredNotifications } from './services/Notification.js';
 import { manageOnline } from './services/onlineLastSeenHandler.js';
-// import deliverUndeliveredChatting from './services/chatting.js';
 
 config();
 
